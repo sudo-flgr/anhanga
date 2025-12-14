@@ -4,6 +4,25 @@
         "status": "OPEN"
     },
     "entities": [],
-    "infra": [],
+    "infra": [
+        {
+            "domain": "https://tigrinho.io",
+            "ip": "Protegido/Falha",
+            "info": "",
+            "timestamp": "2025-12-14 02:47:15.484187"
+        },
+        {
+            "domain": "google.com",
+            "ip": "Hash: 708578229",
+            "info": "Erro Shodan: Access denied (403 Forbidden)",
+            "timestamp": "2025-12-14 02:47:53.804520"
+        },
+        {
+            "domain": "https://www.betano.com",
+            "ip": "Hash: -482620527",
+            "info": "Erro no Shodan: Access denied (403 Forbidden)",
+            "timestamp": "2025-12-14 02:57:22.442885"
+        }
+    ],
     "relations": []
 }

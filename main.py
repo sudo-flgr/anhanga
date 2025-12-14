@@ -6,31 +6,38 @@ import time
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
-from modules.infra.hunter import InfraHunter, ShodanIntel
-from modules.infra.analyzer import ContractAnalyzer
+
 # Setup de Path
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(current_dir)
 
+# Imports dos Módulos
 from modules.fincrime.pix_decoder import PixForensics
-from modules.infra.hunter import InfraHunter
+from modules.infra.hunter import InfraHunter, ShodanIntel
+from modules.infra.analyzer import ContractAnalyzer
 from modules.fincrime.validator import LaranjaHunter
 from modules.graph.builder import GraphBrain
-from core.database import CaseManager  # <--- O NOVO CÉREBRO DE MEMÓRIA
+from core.database import CaseManager
 
-app = typer.Typer(help="Anhangá - Investigação Forense Digital")
-console = Console()
-db = CaseManager() # Carrega o banco de dados automaticamente
-
+# Inicialização ÚNICA
 app = typer.Typer(help="Anhangá - Framework de Inteligência SWAT & FinCrime")
 console = Console()
+
+try:
+    db = CaseManager()
+except Exception as e:
+    console.print(f"[bold red][!] Erro Crítico:[/bold red] Banco de dados não iniciado.")
+    console.print(f"Erro: {e}")
+    sys.exit(1)
 
 @app.command()
 def intro():
     """Exibe o banner e status do sistema."""
     banner = """
     [bold green]
-       ▄▄▄       ███▄    █  ██░ ██  ▄▄▄       ███▄    █   ▄████  ▄▄▄      
+                                                                          █
+                                                                         █   
+       ▄▄▄       ███▄    █  ██░ ██  ▄▄▄       ███▄    █   ▄████  ▄▄▄    █  
       ▒████▄     ██ ▀█   █ ▓██░ ██▒▒████▄     ██ ▀█   █  ██▒ ▀█▒▒████▄    
       ▒██  ▀█▄  ▓██  ▀█ ██▒▒██▀▀██░▒██  ▀█▄  ▓██  ▀█ ██▒▒██░▄▄▄░▒██  ▀█▄  
       ░██▄▄▄▄██ ▓██▒  ▐▌██▒░▓█ ░██ ░██▄▄▄▄██ ▓██▒  ▐▌██▒░▓█  ██▓░██▄▄▄▄██ 
@@ -40,7 +47,7 @@ def intro():
     [bold yellow]   SWAT INTELLIGENCE FRAMEWORK v1.0[/bold yellow]
     """
     console.print(banner)
-    console.print(Panel.fit("Módulos ativos: FinCrime, Infra.", title="Status do Sistema", border_style="green"))
+    console.print(Panel.fit("Módulos ativos: FinCrime, Infra, GraphCore.", title="Status do Sistema", border_style="green"))
 
 @app.command()
 def start():
@@ -53,7 +60,6 @@ def status():
     """Mostra o resumo do caso atual."""
     case = db.get_full_case()
     
-    # Tabela Resumo
     table = Table(title="Status da Investigação Atual")
     table.add_column("Categoria", style="cyan")
     table.add_column("Quantidade", style="magenta")
@@ -65,7 +71,9 @@ def status():
     console.print(table)
 
 @app.command()
-def add_pix(pix: str):
+def add_pix(
+    pix: str = typer.Option(..., "--pix", "-p", help="Código Copia e Cola Pix")
+):
     """1. Decodifica Pix e ADICIONA ao caso."""
     console.print("[blue][*] Processando Pix...[/blue]")
     decoder = PixForensics(pix)
@@ -85,8 +93,8 @@ def add_pix(pix: str):
 
 @app.command()
 def add_url(
-    url: str,
-    shodan_key: str = typer.Option(None, "--shodan-key", "-k", help="Sua API Key do Shodan para enriquecimento automático")
+    url: str = typer.Option(..., "--url", "-u", help="URL do site alvo"),
+    shodan_key: str = typer.Option(None, "--shodan-key", "-k", help="API Key do Shodan para enriquecimento automático")
 ):
     """2. Analisa URL, pega Favicon e (opcional) usa IA para varrer o Shodan."""
     console.print(f"[blue][*] Investigando Infra: {url}...[/blue]")
@@ -96,7 +104,7 @@ def add_url(
     hash_val, link_visual = hunter.get_favicon_hash()
     
     extra_info = link_visual
-    ai_analysis = "Análise de IA não solicitada ou Key não fornecida."
+    ai_analysis = "Nenhuma análise de IA realizada."
     
     if hash_val:
         console.print(f"[green][+] Hash Capturado:[/green] {hash_val}")
@@ -109,36 +117,44 @@ def add_url(
                 shodan_data = shodan_tool.search_by_hash(hash_val)
                 
                 if "erro" not in shodan_data:
-                    # Manda pro Ollama
-                    analyst = ContractAnalyzer(url) # Reusando a classe
+                    # Manda pro Ollama analisar o JSON técnico do Shodan
+                    analyst = ContractAnalyzer(url)
                     ai_analysis = analyst.analyze_shodan_data(str(shodan_data))
                     
                     # Formata para o banco de dados
                     extra_info = f"SHODAN DATA: {len(shodan_data)} IPs encontrados.\n\nANÁLISE IA:\n{ai_analysis}"
                 else:
-                    extra_info = f"Erro Shodan: {shodan_data['erro']}"
+                    ai_analysis = f"Erro no Shodan: {shodan_data.get('erro')}"
+                    extra_info = ai_analysis
 
         # Salva no Banco de Dados
         db.add_infra(url, ip=f"Hash: {hash_val}", extra_info=extra_info)
         
         # Mostra o resultado na tela
         if shodan_key:
-            console.print(Panel(ai_analysis, title="🤖 Relatório de Infraestrutura (IA)", border_style="purple"))
+            if "Erro" in ai_analysis:
+                console.print(f"[red][!] {ai_analysis}[/red]")
+            else:
+                console.print(Panel(ai_analysis, title="🤖 Relatório de Infraestrutura (IA)", border_style="purple"))
         else:
             console.print(f"[yellow][!] Hash salvo. Para análise automática, use --shodan-key[/yellow]")
             
     else:
         db.add_infra(url, ip="Protegido/Falha")
-        console.print(f"[red][!] Favicon não encontrado.[/red]")
+        console.print(f"[red][!] Favicon não encontrado ou site inacessível.[/red]")
 
 @app.command()
 def enrich():
-    """3. (Automático) Varre o banco e enriquece todos os CNPJs encontrados."""
+    """3. (Automático) Varre o banco e valida CNPJs na BrasilAPI."""
     case = db.get_full_case()
     validator = LaranjaHunter()
     
     console.print("[bold purple][*] Iniciando Enriquecimento em Massa...[/bold purple]")
     
+    if not case['entities']:
+        console.print("[yellow][!] Nenhuma entidade para enriquecer. Use 'add-pix' primeiro.[/yellow]")
+        return
+
     for ent in case['entities']:
         doc = ent['document']
         # Se parece um CNPJ (14 dígitos), consulta na Receita
@@ -148,11 +164,9 @@ def enrich():
             if "erro" not in res:
                 ent['info_extra'] = f"CNAE: {res['cnae_principal']} | Sócio: {res['socio_admin']}"
                 # Atualiza risco
-                if "ALTO" in res['risco']:
+                if "ALTO" in res.get('risco', ''):
                     ent['role'] = "LARANJA CONFIRMADO"
     
-    # Salva alterações (simplificado)
-    # Numa versão v2.1, o método save seria mais robusto
     console.print("[green][V] Enriquecimento concluído.[/green]")
 
 @app.command()
@@ -163,23 +177,22 @@ def graph():
     brain = GraphBrain()
     case = db.get_full_case()
     
+    if not case['entities'] and not case['infra']:
+        console.print("[red][!] O caso está vazio. Adicione Pix ou URLs antes de gerar o gráfico.[/red]")
+        return
+
     # 1. Adiciona Pessoas do Banco de Dados
     for ent in case['entities']:
-        # Se tiver info extra do enrich, usa no label
-        label = ent['name']
-        brain.add_fincrime_data(label, ent['document'])
+        brain.add_fincrime_data(ent['name'], ent['document'])
     
     # 2. Adiciona Infra do Banco de Dados
     for inf in case['infra']:
         brain.add_infra_data(inf['domain'], inf['ip'])
         
-    # 3. Cria Conexões (Aqui entra a inteligência do analista)
-    # Por enquanto, conectamos "Todos os Laranjas" a "Todas as URLs" para visualização
-    # Numa versão futura, você especificaria quem pagou quem.
-    if case['entities'] and case['infra']:
-        for ent in case['entities']:
-            for inf in case['infra']:
-                brain.connect_entities(ent['name'], inf['domain'], relation_type="investigado_em")
+    # 3. Cria Conexões (Associação por Caso)
+    for ent in case['entities']:
+        for inf in case['infra']:
+            brain.connect_entities(ent['name'], inf['domain'], relation_type="investigado_em")
     
     console.print("[bold green][V] Abrindo Janela Gráfica com Dados Reais...[/bold green]")
     brain.plot_investigation()
