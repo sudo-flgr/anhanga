@@ -5,6 +5,7 @@ import codecs
 import urllib3
 import shodan
 import socket
+import whois # Biblioteca nova
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 
@@ -13,7 +14,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 class InfraHunter:
     def __init__(self, url):
         self.raw_url = url
-        # Tratamento para garantir domínio limpo e URL completa
+        # Extrai o domínio limpo para o Whois
         if "://" in url:
             self.domain = url.split("://")[1].split("/")[0]
             self.url = url
@@ -22,125 +23,126 @@ class InfraHunter:
             self.url = f"https://{url}"
 
     def resolve_ip(self):
-        """Resolve o IP atual do domínio."""
         try:
-            ip = socket.gethostbyname(self.domain)
-            return ip
+            return socket.gethostbyname(self.domain)
         except:
             return None
 
     def get_favicon_hash(self):
-        """Baixa favicon e calcula hash."""
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Referer': 'https://www.google.com/'
-        }
-        
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
         icon_url = None
         try:
-            # Tenta extrair do HTML
             try:
-                response = requests.get(self.url, headers=headers, verify=False, timeout=10)
-                if response.status_code == 200:
-                    soup = BeautifulSoup(response.content, 'html.parser')
-                    icon_link = soup.find("link", rel=lambda x: x and 'icon' in x.lower())
-                    if icon_link and icon_link.get('href'):
-                        icon_url = urljoin(self.url, icon_link.get('href'))
-            except:
-                pass
+                r = requests.get(self.url, headers=headers, verify=False, timeout=5)
+                soup = BeautifulSoup(r.content, 'html.parser')
+                icon_link = soup.find("link", rel=lambda x: x and 'icon' in x.lower())
+                if icon_link and icon_link.get('href'):
+                    icon_url = urljoin(self.url, icon_link.get('href'))
+            except: pass
             
-            if not icon_url:
-                icon_url = f"{self.url.rstrip('/')}/favicon.ico"
+            if not icon_url: icon_url = f"{self.url.rstrip('/')}/favicon.ico"
 
-            # Baixa e calcula
-            r = requests.get(icon_url, headers=headers, verify=False, timeout=10)
+            r = requests.get(icon_url, headers=headers, verify=False, timeout=8)
             if r.status_code == 200:
                 favicon_base64 = codecs.encode(r.content, 'base64')
                 hash_val = mmh3.hash(favicon_base64)
                 return hash_val, f"https://www.shodan.io/search?query=http.favicon.hash%3A{hash_val}"
             return None, None
-        except:
-            return None, None
+        except: return None, None
+
+class WhoisIntel:
+    """Consulta dados de Registro de Domínio (O 'RG' do site)."""
+    def get_whois(self, domain):
+        try:
+            w = whois.whois(domain)
+            
+            # Função auxiliar para limpar listas (ex: datas múltiplas)
+            def clean(val):
+                if isinstance(val, list): return str(val[0])
+                return str(val) if val else "N/A"
+
+            return {
+                "registrar": clean(w.registrar),
+                "creation_date": clean(w.creation_date),
+                "emails": str(w.emails) if w.emails else "N/A", # Emails podem ser lista
+                "org": clean(w.org),
+                "name": clean(w.name),
+                "status": "Sucesso"
+            }
+        except Exception as e:
+            return {"status": "Erro", "error": str(e)}
+
+class IPGeo:
+    def get_data(self, ip):
+        try:
+            r = requests.get(f"http://ip-api.com/json/{ip}?fields=status,country,isp,org,as", timeout=5)
+            if r.status_code == 200 and r.json().get('status') == 'success':
+                data = r.json()
+                return f"{data['isp']} ({data['country']}) - {data['as']}"
+        except: pass
+        return "Dados Indisponíveis"
+
+class VirusTotalIntel:
+    def __init__(self, api_key):
+        self.key = api_key
+        self.base = "https://www.virustotal.com/api/v3/ip_addresses"
+
+    def analyze_ip(self, ip):
+        if not self.key: return None
+        headers = {"x-apikey": self.key}
+        try:
+            r = requests.get(f"{self.base}/{ip}", headers=headers, timeout=10)
+            if r.status_code == 200:
+                data = r.json().get('data', {}).get('attributes', {})
+                stats = data.get('last_analysis_stats', {})
+                total_bad = stats.get('malicious', 0) + stats.get('suspicious', 0)
+                
+                verdict = "✅ LIMPO"
+                if total_bad > 0: verdict = f"⚠️ SUSPEITO ({total_bad} detectções)"
+                if total_bad > 5: verdict = f"🚨 MALICIOSO ({total_bad} detectções)"
+                
+                return {
+                    "verdict": verdict,
+                    "owner": data.get('as_owner', 'N/A'),
+                    "country": data.get('country', 'N/A')
+                }
+            elif r.status_code == 401: return {"error": "Key Inválida"}
+            elif r.status_code == 429: return {"error": "Limite Excedido"}
+        except Exception as e: return {"error": str(e)}
+        return None
 
 class CertificateHunter:
-    """Busca subdomínios usando Certificate Transparency (CRT.sh) - Gratuito"""
     def get_subdomains(self, domain):
-        url = f"https://crt.sh/?q=%.{domain}&output=json"
         try:
-            # print(f"[DEBUG] Consultando CRT.sh para {domain}...") 
-            r = requests.get(url, timeout=20)
+            r = requests.get(f"https://crt.sh/?q=%.{domain}&output=json", timeout=15)
             if r.status_code == 200:
-                data = r.json()
-                # Filtra duplicatas e limpa os nomes
                 subs = set()
-                for entry in data:
-                    name_value = entry.get('name_value', '')
-                    # Separa múltiplas entradas por linha
-                    for sub in name_value.split('\n'):
-                        if sub and '*' not in sub:
-                            subs.add(sub.lower())
+                for entry in r.json():
+                    name_val = entry.get('name_value', '')
+                    for s in name_val.split('\n'):
+                        if s and '*' not in s: subs.add(s.lower())
                 return list(subs)
-            return []
-        except Exception as e:
-            return [f"Erro CRT: {str(e)}"]
+        except: pass
+        return []
 
 class ShodanIntel:
     def __init__(self, api_key):
         self.api = shodan.Shodan(api_key)
 
     def enrich_target(self, ip, favicon_hash=None):
-        """
-        Estratégia Híbrida:
-        1. Tenta buscar pelo Hash (Ideal).
-        2. Se der 403 (Plano Free), consulta o HOST IP direto (Permitido).
-        """
-        intel = {
-            "strategy": "Unknown",
-            "data": [],
-            "error": None
-        }
-
-        # TENTATIVA 1: Busca Global por Hash (Melhor cenário: Bypass)
+        intel = {"strategy": "N/A", "data": [], "error": None}
         if favicon_hash:
             try:
-                query = f"http.favicon.hash:{favicon_hash}"
-                results = self.api.search(query, limit=5)
-                intel["strategy"] = "Hash Search (Global)"
-                for match in results['matches']:
-                    intel["data"].append(self._parse_match(match))
+                res = self.api.search(f"http.favicon.hash:{favicon_hash}", limit=5)
+                intel["strategy"] = "Hash Search"
+                intel["data"] = res['matches']
                 return intel
-            except shodan.APIError as e:
-                # Se for erro de plano (403), ignoramos e vamos para o Plano B
-                if "forbidden" not in str(e).lower() and "access denied" not in str(e).lower():
-                    intel["error"] = str(e)
-                    return intel
-        
-        # TENTATIVA 2: Consulta Direta de Host (Plano B: Reconhecimento do Alvo)
-        # O plano Free permite consultar IPs específicos (/shodan/host/{ip})
+            except: pass
         if ip:
             try:
-                host_info = self.api.host(ip)
-                intel["strategy"] = "Direct Host Lookup (IP Target)"
-                intel["data"].append({
-                    "ip": host_info.get('ip_str'),
-                    "org": host_info.get('org', 'N/A'),
-                    "portas": host_info.get('ports', []),
-                    "pais": host_info.get('country_name', 'N/A'),
-                    "vulns": list(host_info.get('vulns', []))
-                })
+                host = self.api.host(ip)
+                intel["strategy"] = "IP Lookup"
+                intel["data"] = [host]
                 return intel
-            except Exception as e:
-                intel["error"] = f"Falha na consulta de Host: {str(e)}"
-                return intel
-        
-        intel["error"] = "Sem dados suficientes para consulta Shodan (Hash 403 e Sem IP)."
+            except Exception as e: intel["error"] = str(e)
         return intel
-
-    def _parse_match(self, match):
-        return {
-            "ip": match.get('ip_str'),
-            "org": match.get('org', 'N/A'),
-            "portas": match.get('port', []),
-            "pais": match.get('location', {}).get('country_name', 'N/A'),
-            "vulns": list(match.get('vulns', {}).keys()) if 'vulns' in match else []
-        }

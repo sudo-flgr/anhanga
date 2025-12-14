@@ -1,85 +1,75 @@
 # Arquivo: anhanga/modules/graph/builder.py
-import networkx as nx
-import matplotlib.pyplot as plt
+from pyvis.network import Network
+import os
+import webbrowser
 
 class GraphBrain:
     def __init__(self):
-        self.G = nx.Graph()
+        # Configura o Canvas: Fundo Preto, Fonte Branca, 100% da tela
+        self.net = Network(height="750px", width="100%", bgcolor="#111111", font_color="white")
+        
+        # Física dos nós (Evita que fiquem um em cima do outro)
+        self.net.force_atlas_2based()
 
-    def add_fincrime_data(self, nome_laranja, cpf_cnpj, origem="Pix"):
-        """Adiciona nós financeiros"""
-        # Nó Central (Pessoa) - Vermelho Neon
-        self.G.add_node(nome_laranja, type='person', label=nome_laranja)
+    def add_fincrime_data(self, nome_laranja, doc):
+        """Adiciona Nó de Pessoa/Empresa"""
+        # Ícone de usuário ou prédio
+        self.net.add_node(nome_laranja, label=nome_laranja, title=f"Alvo: {nome_laranja}\nDoc: {doc}", color="#ff3333", shape="dot", value=20)
         
-        # Nó do Documento - Vermelho Claro
-        self.G.add_node(cpf_cnpj, type='doc', label=cpf_cnpj)
-        
-        # Conexão
-        self.G.add_edge(nome_laranja, cpf_cnpj, relation='documento')
+        # Adiciona o documento como um nó menor conectado
+        self.net.add_node(doc, label=doc, color="#ff8080", shape="box", size=10)
+        self.net.add_edge(nome_laranja, doc, color="#555555")
 
-    def add_infra_data(self, domain, ip_real, provider="Shodan"):
-        """Adiciona nós de infraestrutura"""
-        # Nó do Site - Azul Neon
-        self.G.add_node(domain, type='domain', label=domain)
+    def add_infra_data(self, domain, ip_real):
+        """Adiciona Nó de Infraestrutura"""
+        # Nó do Site
+        self.net.add_node(domain, label=domain, title=f"Site: {domain}\nIP: {ip_real}", color="#3333ff", shape="dot", value=20)
         
-        # Nó do IP - Ciano Neon
-        self.G.add_node(ip_real, type='ip', label=ip_real)
-        
-        # Conexão
-        self.G.add_edge(domain, ip_real, relation='hospedado_em')
+        # Nó do IP
+        self.net.add_node(ip_real, label=ip_real, color="#00ffff", shape="box", size=10)
+        self.net.add_edge(domain, ip_real, color="#555555")
 
-    def connect_entities(self, entity1, entity2, relation_type="suspeita"):
-        """Cria o link entre o Crime Financeiro e a Infra"""
-        self.G.add_edge(entity1, entity2, relation=relation_type)
+    def connect_entities(self, source, target, relation_type):
+        """Cria o vínculo com uma seta explicativa"""
+        self.net.add_edge(source, target, title=relation_type, label=relation_type, color="#ffff00", width=2, arrows="to")
 
     def plot_investigation(self):
-        """Gera a janela visual no estilo Cyberpunk/Dark"""
-        # 1. Configura o Fundo Preto (Dark Mode)
-        plt.style.use('dark_background')
-        plt.figure(figsize=(12, 8)) # Janela maior
+        """Gera o HTML interativo e abre no navegador"""
+        output_file = "investigation_map.html"
         
-        # 2. Layout mais espaçado (k=0.5 empurra os nós para longe)
-        pos = nx.spring_layout(self.G, seed=42, k=0.8) 
+        # Opções visuais avançadas (Física)
+        self.net.set_options("""
+        var options = {
+          "nodes": {
+            "font": {
+              "size": 16,
+              "face": "tahoma"
+            }
+          },
+          "edges": {
+            "color": {
+              "inherit": true
+            },
+            "smooth": false
+          },
+          "physics": {
+            "forceAtlas2Based": {
+              "gravitationalConstant": -50,
+              "centralGravity": 0.01,
+              "springLength": 100,
+              "springConstant": 0.08
+            },
+            "minVelocity": 0.75,
+            "solver": "forceAtlas2Based"
+          }
+        }
+        """)
         
-        # 3. Definição de Cores Neon baseada no tipo
-        color_map = []
-        for node in self.G.nodes:
-            tipo = self.G.nodes[node].get('type')
-            if tipo == 'person': 
-                color_map.append('#ff3333') # Vermelho Neon
-            elif tipo == 'doc': 
-                color_map.append('#ff8080') # Salmão
-            elif tipo == 'domain': 
-                color_map.append('#3333ff') # Azul Neon
-            elif tipo == 'ip': 
-                color_map.append('#00ffff') # Ciano Brilhante
-            else: 
-                color_map.append('gray')
-
-        # 4. Desenha os Nós e Arestas
-        nx.draw(self.G, pos, 
-                with_labels=True, 
-                node_color=color_map, 
-                node_size=3500,           # Nós grandes
-                font_size=9,              # Fonte legível
-                font_color='white',       # Texto Branco
-                font_weight='bold',
-                edge_color='#666666',     # Linhas cinza discreto
-                width=2)                  # Linhas mais grossas
-
-        # 5. O Pulo do Gato: Escrever o nome da relação NA LINHA
-        edge_labels = nx.get_edge_attributes(self.G, 'relation')
-        nx.draw_networkx_edge_labels(self.G, pos, 
-                                   edge_labels=edge_labels, 
-                                   font_color='#ffff00',  # Amarelo Neon para chamar atenção
-                                   font_size=8,
-                                   bbox=dict(facecolor='black', edgecolor='none', alpha=0.7)) # Fundo preto no texto
-
-        plt.title("ANHANGÁ INTELLIGENCE MAP [TOP SECRET]", color='#00ff00', fontsize=16, weight='bold')
+        self.net.save_graph(output_file)
+        print(f"[bold green][*] Mapa Tático gerado: {output_file}[/bold green]")
         
-        # Remove as bordas do gráfico para ficar limpo
-        plt.gca().margins(0.1, 0.1)
-        plt.axis("off")
-        
-        print("[*] Abrindo visualização tática...")
-        plt.show()
+        # Tenta abrir no navegador padrão
+        try:
+            webbrowser.open('file://' + os.path.realpath(output_file))
+        except:
+            print(f"Abra o arquivo {output_file} manualmente no seu navegador.")

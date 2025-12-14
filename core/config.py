@@ -11,14 +11,14 @@ class ConfigManager:
 
     def _load(self):
         if not os.path.exists(self.file):
-            self.data = {"shodan_key": None, "openai_key": None}
+            self.data = {"shodan_key": None, "virustotal_key": None}
             self._save()
         else:
             try:
                 with open(self.file, 'r') as f:
                     self.data = json.load(f)
             except:
-                self.data = {"shodan_key": None}
+                self.data = {}
 
     def _save(self):
         with open(self.file, 'w') as f:

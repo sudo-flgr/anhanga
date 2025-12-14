@@ -11,7 +11,7 @@ sys.path.append(current_dir)
 
 # Imports
 from modules.fincrime.pix_decoder import PixForensics
-from modules.infra.hunter import InfraHunter, ShodanIntel, CertificateHunter
+from modules.infra.hunter import InfraHunter, ShodanIntel, CertificateHunter, CertificateHunter, IPGeo, VirusTotalIntel, WhoisIntel
 from modules.infra.analyzer import ContractAnalyzer
 from modules.fincrime.validator import LaranjaHunter
 from modules.graph.builder import GraphBrain
@@ -44,98 +44,95 @@ def intro():
 
 @app.command()
 def config(
-    shodan: str = typer.Option(None, "--set-shodan", help="Salva sua API Key do Shodan permanentemente")
+    shodan: str = typer.Option(None, "--set-shodan", help="Define API Key do Shodan"),
+    vt: str = typer.Option(None, "--set-vt", help="Define API Key do VirusTotal")
 ):
-    """Configurações Globais (Salvas para sempre)."""
+    """Configurações Globais."""
     if shodan:
         cfg.set_key("shodan", shodan)
-        console.print("[green][V] Chave Shodan salva com sucesso![/green]")
+        console.print("[green][V] Shodan Key salva![/green]")
+    if vt:
+        cfg.set_key("virustotal", vt)
+        console.print("[green][V] VirusTotal Key salva![/green]")
 
 @app.command()
 def start():
-    """Inicia nova operação (ZERA O CASO ATUAL)."""
     db.nuke()
     console.print("[bold green][*] Operação Limpa Iniciada.[/bold green]")
 
 @app.command()
 def add_pix(
     pix: str = typer.Option(..., "--pix", "-p"),
-    link_url: str = typer.Option(None, "--link", "-l", help="URL associada a este pagamento (Cria Vínculo)")
+    link_url: str = typer.Option(None, "--link", "-l")
 ):
-    """Adiciona Pix e opcionalmente vincula a um site."""
     decoder = PixForensics(pix)
     data = decoder.analyze()
+    db.add_entity(data['merchant_name'], data['pix_key'], role="Recebedor Pix")
+    console.print(f"[green][+] Alvo:[/green] {data['merchant_name']}")
     
-    # Adiciona Entidade
-    nome = data['merchant_name']
-    doc = data['pix_key']
-    db.add_entity(nome, doc, role="Recebedor Pix")
-    
-    console.print(f"[green][+] Alvo Financeiro:[/green] {nome}")
-    
-    # CRIA O VÍNCULO REAL (Se o usuário informou a URL)
     if link_url:
-        # Garante que a infra existe antes de vincular
-        db.add_infra(link_url, ip="Desconhecido") 
-        db.add_relation(nome, link_url, "recebeu_pagamento_de")
-        console.print(f"[bold cyan][LINK] Vínculo forense criado: {nome} <--> {link_url}[/bold cyan]")
+        db.add_infra(link_url, ip="Desconhecido")
+        db.add_relation(data['merchant_name'], link_url, "recebeu_pagamento_de")
+        console.print(f"[cyan][LINK] Vínculo criado com {link_url}[/cyan]")
 
 @app.command()
 def add_url(url: str = typer.Option(..., "--url", "-u")):
-    """Analisa Infra. Usa a chave Shodan salva na config."""
+    """Analisa Infra Completa (Whois, IP, VirusTotal, Shodan)."""
     console.print(f"[blue][*] Investigando: {url}[/blue]")
     
-    # 1. Recupera Chave da Config Global
-    shodan_key = cfg.get_key("shodan")
-    if not shodan_key:
-        console.print("[yellow][!] AVISO: Chave Shodan não configurada. Use 'python main.py config --set-shodan KEY'[/yellow]")
-    
-    # 2. Executa Hunter (Igual v2.1)
     hunter = InfraHunter(url)
+    ip_geo = IPGeo()
+    vt_intel = VirusTotalIntel(cfg.get_key("virustotal"))
+    whois_tool = WhoisIntel()
+    
+    # 1. Resolução e Favicon
     target_ip = hunter.resolve_ip()
     hash_val, _ = hunter.get_favicon_hash()
     
-    report = f"IP: {target_ip}\nHash: {hash_val}"
+    report = f"IP: {target_ip}\n"
+    report += f"Hash: {hash_val}\n" if hash_val else "Hash: N/A\n"
+
+    # 2. WHOIS (Dados de Registro)
+    with console.status("[bold yellow]Consultando Whois (Registrar)...[/bold yellow]"):
+        w_data = whois_tool.get_whois(hunter.domain)
+        if w_data["status"] == "Sucesso":
+            report += f"\n[WHOIS]\nRegistrar: {w_data['registrar']}\nOrg: {w_data['org']}\nCriado em: {w_data['creation_date']}\nE-mails: {w_data['emails']}\n"
+        else:
+            report += f"\n[WHOIS]: Falha ({w_data['error']})\n"
+
+    # 3. Enriquecimento de Rede
+    if target_ip:
+        geo_info = ip_geo.get_data(target_ip)
+        report += f"\n[REDE]: {geo_info}\n"
     
-    # 3. Shodan (Se tiver chave)
+    # 4. VirusTotal
+    if target_ip and vt_intel.key:
+        with console.status("[bold red]Consultando VirusTotal...[/bold red]"):
+            vt_data = vt_intel.analyze_ip(target_ip)
+            if vt_data and "error" not in vt_data:
+                report += f"\n[VIRUSTOTAL]\nStatus: {vt_data['verdict']}\nDono: {vt_data['owner']}\n"
+
+    # 5. Shodan
+    shodan_key = cfg.get_key("shodan")
     if shodan_key:
         shodan_tool = ShodanIntel(shodan_key)
         intel = shodan_tool.enrich_target(target_ip, hash_val)
         if not intel.get("error"):
-            report += f"\n\n[SHODAN]: {intel['strategy']}\nDados coletados."
-            
-            # IA Analysis (Opcional)
-            try:
-                analyst = ContractAnalyzer(url)
-                ai_res = analyst.analyze_shodan_data(str(intel['data']))
-                report += f"\n\n[IA]:\n{ai_res}"
-            except: pass
-            
+            report += f"\n[SHODAN]: {intel['strategy']} - Dados coletados."
+
     db.add_infra(url, ip=str(target_ip), extra_info=report)
-    console.print(Panel(report, title="Relatório Infra", border_style="cyan"))
+    console.print(Panel(report, title="Dossiê de Infraestrutura", border_style="cyan"))
 
 @app.command()
 def graph():
-    """Gera o Grafo APENAS com vínculos confirmados."""
     brain = GraphBrain()
     case = db.get_full_case()
     
-    # 1. Adiciona Nós (Entidades e Infra)
-    for ent in case['entities']:
-        brain.add_fincrime_data(ent['name'], ent['document'])
-    for inf in case['infra']:
-        brain.add_infra_data(inf['domain'], inf['ip'])
+    for ent in case['entities']: brain.add_fincrime_data(ent['name'], ent['document'])
+    for inf in case['infra']: brain.add_infra_data(inf['domain'], inf['ip'])
         
-    # 2. Adiciona APENAS Relações Reais (A Correção Lógica)
-    # O loop "for x in entities / for y in infra" FOI REMOVIDO.
-    count = 0
     for rel in case['relations']:
         brain.connect_entities(rel['source'], rel['target'], relation_type=rel['type'])
-        count += 1
-        
-    if count == 0:
-        console.print("[yellow][!] Nenhuma conexão explícita encontrada. O grafo mostrará apenas nós soltos.[/yellow]")
-        console.print("Dica: Use '--link site.com' ao adicionar um Pix.")
         
     brain.plot_investigation()
 

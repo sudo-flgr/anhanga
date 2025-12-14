@@ -1,54 +1,9 @@
 {
     "meta": {
-        "start_time": "2025-12-14 02:37:31.766352",
-        "status": "OPEN"
+        "start": "2025-12-14 08:34:59.836818",
+        "case_name": "OP_DEFAULT"
     },
-    "entities": [
-        {
-            "name": "AUTOPASS S.A.",
-            "document": "2568pix.santander.com.br/qr/v2/cobv/d22411d4-043a-4264-b476-c851c60a6596",
-            "role": "Recebedor Pix",
-            "timestamp": "2025-12-14 08:07:15.324044"
-        }
-    ],
-    "infra": [
-        {
-            "domain": "https://tigrinho.io",
-            "ip": "Protegido/Falha",
-            "info": "",
-            "timestamp": "2025-12-14 02:47:15.484187"
-        },
-        {
-            "domain": "google.com",
-            "ip": "Hash: 708578229",
-            "info": "Erro Shodan: Access denied (403 Forbidden)",
-            "timestamp": "2025-12-14 02:47:53.804520"
-        },
-        {
-            "domain": "https://www.betano.com",
-            "ip": "Hash: -482620527",
-            "info": "Erro no Shodan: Access denied (403 Forbidden)",
-            "timestamp": "2025-12-14 02:57:22.442885"
-        },
-        {
-            "domain": "https://tigrinho.io/",
-            "ip": "Desconhecido",
-            "info": "",
-            "timestamp": "2025-12-14 08:07:15.327565"
-        },
-        {
-            "domain": "tigrinho.io",
-            "ip": "104.21.11.235",
-            "info": "IP: 104.21.11.235\nHash: -97942754",
-            "timestamp": "2025-12-14 08:07:38.754191"
-        }
-    ],
-    "relations": [
-        {
-            "source": "AUTOPASS S.A.",
-            "target": "https://tigrinho.io/",
-            "type": "recebeu_pagamento_de",
-            "timestamp": "2025-12-14 08:07:15.328561"
-        }
-    ]
+    "entities": [],
+    "infra": [],
+    "relations": []
 }

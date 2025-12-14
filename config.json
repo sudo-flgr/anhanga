@@ -1,4 +1,5 @@
 {
     "shodan_key": "Gk6EEAbQbZWDEjmegigvi7v9l0NnJ6ON",
-    "openai_key": null
+    "openai_key": null,
+    "virustotal_key": "74ab735e4092521511b65d15d6e322d7c963788a149e58ddca30133f48f13489"
 }
