@@ -118,8 +118,8 @@ pip install -r requirements.txt
 O Anhangá possui um **gerenciador de segredos criptografado localmente**.
 
 ```bash
-python main.py config --set-shodan "SUA_KEY_SHODAN"
-python main.py config --set-vt "SUA_KEY_VIRUSTOTAL"
+python anhanga.py config --set-shodan "SUA_KEY_SHODAN"
+python anhanga.py config --set-vt "SUA_KEY_VIRUSTOTAL"
 ```
 
 ---
@@ -131,7 +131,7 @@ python main.py config --set-vt "SUA_KEY_VIRUSTOTAL"
 O Anhangá guia você por toda a investigação, do Pix ao Relatório Final:
 
 ```bash
-python main.py investigate
+python anhanga.py investigate
 ```
 
 O assistente irá:
@@ -148,16 +148,16 @@ O assistente irá:
 
 ```bash
 # Iniciar ou limpar operação
-python main.py start
+python anhanga.py start
 
 # Adicionar Pix
-python main.py add-pix --pix "000201..."
+python anhanga.py add-pix --pix "000201..."
 
 # Investigar site
-python main.py add-url --url "site.com"
+python anhanga.py add-url --url "site.com"
 
 # Gerar grafo
-python main.py graph
+python anhanga.py graph
 ```
 
 ---
@@ -166,7 +166,7 @@ python main.py graph
 
 ```text
 anhanga/
-├── main.py                     # Orquestrador (CLI Typer)
+├── anhanga.py                     # Orquestrador (CLI Typer)
 ├── investigation_current.json  # Banco de dados da sessão
 ├── core/
 │   ├── database.py             # Gerenciador de estado
