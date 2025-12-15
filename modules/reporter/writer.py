@@ -1,17 +1,15 @@
-# Arquivo: anhanga/modules/reporter/writer.py
 import ollama
 import json
 from datetime import datetime
 
 class AIReporter:
     def __init__(self):
-        self.model = "phi3"  # Ou 'llama3', dependendo do que você tem instalado
+        self.model = "phi3"  
 
     def generate_dossier(self, case_data):
         """
         Usa o Ollama para transformar o JSON técnico em um Relatório Policial/Executivo.
         """
-        # Prepara os dados para a IA não se perder
         evidence_summary = json.dumps(case_data, indent=2, ensure_ascii=False)
         
         prompt = f"""

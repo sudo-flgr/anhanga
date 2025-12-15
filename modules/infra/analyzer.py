@@ -1,4 +1,3 @@
-# Arquivo: anhanga/modules/infra/analyzer.py
 import requests
 from bs4 import BeautifulSoup
 import ollama
@@ -19,14 +18,11 @@ class ContractAnalyzer:
             
             soup = BeautifulSoup(response.content, 'html.parser')
             
-            # Remove lixo (scripts, estilos, menus)
             for script in soup(["script", "style", "nav", "footer"]):
                 script.extract()
             
-            # Pega o texto limpo
             text = soup.get_text(separator=' ')
             
-            # Limita a 6000 caracteres para não estourar a memória da IA
             return " ".join(text.split())[:6000]
         except:
             return None
@@ -63,7 +59,6 @@ class ContractAnalyzer:
         if not text_content:
             return {"erro": "Não foi possível ler o site."}
 
-        # O Prompt de Engenharia (A Mágica)
         prompt = f"""
         Analise o texto abaixo extraído de um site de apostas.
         Sua missão é encontrar a Entidade Legal responsável.
@@ -80,7 +75,6 @@ class ContractAnalyzer:
         """
 
         try:
-            # Chama a IA localmente
             response = ollama.chat(model='phi3', messages=[
                 {'role': 'user', 'content': prompt},
             ])

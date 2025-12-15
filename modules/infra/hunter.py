@@ -1,11 +1,10 @@
-# Arquivo: anhanga/modules/infra/hunter.py
 import mmh3
 import requests
 import codecs
 import urllib3
 import shodan
 import socket
-import whois # Biblioteca nova
+import whois 
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 
@@ -14,7 +13,6 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 class InfraHunter:
     def __init__(self, url):
         self.raw_url = url
-        # Extrai o domínio limpo para o Whois
         if "://" in url:
             self.domain = url.split("://")[1].split("/")[0]
             self.url = url
@@ -56,7 +54,6 @@ class WhoisIntel:
         try:
             w = whois.whois(domain)
             
-            # Função auxiliar para limpar listas (ex: datas múltiplas)
             def clean(val):
                 if isinstance(val, list): return str(val[0])
                 return str(val) if val else "N/A"
@@ -64,7 +61,7 @@ class WhoisIntel:
             return {
                 "registrar": clean(w.registrar),
                 "creation_date": clean(w.creation_date),
-                "emails": str(w.emails) if w.emails else "N/A", # Emails podem ser lista
+                "emails": str(w.emails) if w.emails else "N/A",
                 "org": clean(w.org),
                 "name": clean(w.name),
                 "status": "Sucesso"

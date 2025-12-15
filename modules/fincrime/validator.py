@@ -1,4 +1,3 @@
-# Arquivo: anhanga/modules/fincrime/validator.py
 import requests
 import json
 
@@ -10,7 +9,6 @@ class LaranjaHunter:
         """
         Consulta dados públicos do CNPJ na BrasilAPI para detectar anomalias (Laranjas).
         """
-        # Limpa pontuação, deixa apenas números
         cnpj = "".join(filter(str.isdigit, cnpj_raw))
         
         try:
@@ -19,19 +17,16 @@ class LaranjaHunter:
             if response.status_code == 200:
                 data = response.json()
                 
-                # Extrai apenas o que interessa para Inteligência
                 intel = {
                     "razao_social": data.get("razao_social"),
                     "nome_fantasia": data.get("nome_fantasia", "N/A"),
-                    "situacao": data.get("descricao_situacao_cadastral"), # ATIVA/BAIXADA
-                    "cnae_principal": data.get("cnae_fiscal_descricao"),  # A ATIVIDADE ECONOMICA (O Pulo do Gato)
+                    "situacao": data.get("descricao_situacao_cadastral"),
+                    "cnae_principal": data.get("cnae_fiscal_descricao"),
                     "capital_social": data.get("capital_social"),
                     "socio_admin": data["qsa"][0]["nome_socio"] if data.get("qsa") else "N/A",
                     "risco": "DESCONHECIDO"
                 }
 
-                # Lógica Básica de Risco (Exemplo)
-                # Se a atividade não for 'Jogos de azar' ou 'Tecnologia', e receber Pix de aposta... suspeito.
                 keywords_suspeitas = ["PADARIA", "MERCADINHO", "BELEZA", "VESTUARIO", "CONSTRUCAO"]
                 cnae = intel["cnae_principal"].upper()
                 

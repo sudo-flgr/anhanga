@@ -1,17 +1,13 @@
-# Arquivo: anhanga/main.py
 import typer
 import sys
 import os
 from rich.console import Console
 from rich.panel import Panel
-from rich.prompt import Prompt, Confirm # <--- O Python precisa disso
+from rich.prompt import Prompt, Confirm
 from rich.markdown import Markdown
 
-# Setup de Path
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(current_dir)
-
-# Imports
 from modules.fincrime.pix_decoder import PixForensics
 from modules.infra.hunter import InfraHunter, ShodanIntel, CertificateHunter, CertificateHunter, IPGeo, VirusTotalIntel, WhoisIntel
 from modules.infra.analyzer import ContractAnalyzer
@@ -88,14 +84,12 @@ def add_url(url: str = typer.Option(..., "--url", "-u")):
     vt_intel = VirusTotalIntel(cfg.get_key("virustotal"))
     whois_tool = WhoisIntel()
     
-    # 1. Resolução e Favicon
     target_ip = hunter.resolve_ip()
     hash_val, _ = hunter.get_favicon_hash()
     
     report = f"IP: {target_ip}\n"
     report += f"Hash: {hash_val}\n" if hash_val else "Hash: N/A\n"
 
-    # 2. WHOIS (Dados de Registro)
     with console.status("[bold yellow]Consultando Whois (Registrar)...[/bold yellow]"):
         w_data = whois_tool.get_whois(hunter.domain)
         if w_data["status"] == "Sucesso":
@@ -103,19 +97,16 @@ def add_url(url: str = typer.Option(..., "--url", "-u")):
         else:
             report += f"\n[WHOIS]: Falha ({w_data['error']})\n"
 
-    # 3. Enriquecimento de Rede
     if target_ip:
         geo_info = ip_geo.get_data(target_ip)
         report += f"\n[REDE]: {geo_info}\n"
     
-    # 4. VirusTotal
     if target_ip and vt_intel.key:
         with console.status("[bold red]Consultando VirusTotal...[/bold red]"):
             vt_data = vt_intel.analyze_ip(target_ip)
             if vt_data and "error" not in vt_data:
                 report += f"\n[VIRUSTOTAL]\nStatus: {vt_data['verdict']}\nDono: {vt_data['owner']}\n"
 
-    # 5. Shodan
     shodan_key = cfg.get_key("shodan")
     if shodan_key:
         shodan_tool = ShodanIntel(shodan_key)
@@ -144,12 +135,10 @@ def investigate():
     """Modo Guiado: Inicia uma investigação completa passo-a-passo."""
     print_banner()
     
-    # 1. Setup
     if Confirm.ask("[bold yellow]1. Deseja iniciar uma NOVA operação (Isso limpará dados anteriores)?[/bold yellow]"):
         db.nuke()
         console.print("[green][*] Memória limpa.[/green]")
     
-    # 2. Coleta Financeira (Pix)
     console.print("\n[bold cyan]--- FASE 1: RASTREIO FINANCEIRO ---[/bold cyan]")
     pix_code = Prompt.ask("Cole o [bold]Código Pix (Copia e Cola)[/bold] ou pressione Enter para pular")
     
@@ -160,69 +149,54 @@ def investigate():
             data = decoder.analyze()
             alvo_financeiro = data['merchant_name']
             
-            # Salva
             db.add_entity(data['merchant_name'], data['pix_key'], role="Recebedor Pix")
         
         console.print(Panel(f"Alvo Identificado: [bold]{data['merchant_name']}[/bold]\nDoc: {data['pix_key']}", border_style="green"))
 
-    # 3. Coleta de Infraestrutura (URL)
     console.print("\n[bold cyan]--- FASE 2: INTELIGÊNCIA DE INFRAESTRUTURA ---[/bold cyan]")
     url = Prompt.ask("Digite a [bold]URL do Site de Apostas[/bold] (ex: tigrinho.io) ou Enter para pular")
     
     if url:
         with console.status("[bold blue]Rodando InfraHunter (Whois, Shodan, VT, CRT)...[/bold blue]"):
-            # Inicializa Ferramentas
             hunter = InfraHunter(url)
             vt_intel = VirusTotalIntel(cfg.get_key("virustotal"))
             whois_tool = WhoisIntel()
             shodan_key = cfg.get_key("shodan")
 
-            # Executa Coleta
             ip = hunter.resolve_ip()
             hash_val, _ = hunter.get_favicon_hash()
             
-            # Whois
             w_data = whois_tool.get_whois(hunter.domain)
             whois_txt = f"Registrar: {w_data.get('registrar')}\nData: {w_data.get('creation_date')}"
             
-            # VirusTotal
             vt_res = "N/A"
             if ip and vt_intel.key:
                 vt_data = vt_intel.analyze_ip(ip)
                 if vt_data: vt_res = f"{vt_data.get('verdict')} - {vt_data.get('owner')}"
 
-            # Compila Relatório Técnico
             report_tec = f"IP: {ip}\nHash: {hash_val}\nWHOIS: {whois_txt}\nVT: {vt_res}"
             
-            # Salva
             db.add_infra(url, ip=str(ip), extra_info=report_tec)
             
-            # Cria Vínculo Automático se tivermos Pix e URL
             if alvo_financeiro:
                 db.add_relation(alvo_financeiro, url, "recebeu_pagamento_de")
 
         console.print(Panel(report_tec, title="Infraestrutura Mapeada", border_style="green"))
 
-    # 4. Análise de IA (O Grande Final)
     console.print("\n[bold cyan]--- FASE 3: ANÁLISE COGNITIVA (OLLAMA) ---[/bold cyan]")
     with console.status("[bold purple]Ollama está lendo o caso e escrevendo o dossiê...[/bold purple]"):
         reporter = AIReporter()
-        case_data = db.get_full_case() # Pega tudo que coletamos
+        case_data = db.get_full_case()
         
-        # A Mágica acontece aqui
         dossie = reporter.generate_dossier(case_data)
         
-        # Salva em arquivo
         filename = reporter.save_report(dossie)
     
     console.print(Panel(Markdown(dossie), title="Relatório de Inteligência Gerado", border_style="magenta"))
     console.print(f"[bold green]Arquivo salvo: {filename}[/bold green]")
 
-    # 5. Visualização
     if Confirm.ask("\n[bold yellow]Deseja abrir o Mapa de Conexões (Grafo)?[/bold yellow]"):
-        # Aqui chamamos o builder do PyVis
         console.print("[blue]Gerando HTML...[/blue]")
-        # (Reutiliza a lógica do comando graph existente)
         brain = GraphBrain()
         for ent in case_data['entities']: brain.add_fincrime_data(ent['name'], ent['document'])
         for inf in case_data['infra']: brain.add_infra_data(inf['domain'], inf['ip'])
