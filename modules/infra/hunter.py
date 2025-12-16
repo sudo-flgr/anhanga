@@ -1,145 +1,142 @@
-import mmh3
-import requests
-import codecs
-import urllib3
-import shodan
+# Arquivo: anhanga/modules/infra/hunter.py
+import re
 import socket
-import whois 
+import requests
+import mmh3
+import codecs
+from urllib.parse import urlparse
 from bs4 import BeautifulSoup
-from urllib.parse import urljoin
+from core.base import AnhangáModule
+from core.config import ConfigManager
 
+# Suprime avisos de SSL (comum em sites de phishing)
+import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-class InfraHunter:
-    def __init__(self, url):
-        self.raw_url = url
-        if "://" in url:
-            self.domain = url.split("://")[1].split("/")[0]
-            self.url = url
-        else:
-            self.domain = url.split("/")[0]
-            self.url = f"https://{url}"
+class InfraModule(AnhangáModule):
+    def __init__(self):
+        super().__init__()
+        self.meta = {
+            "name": "InfraHunter v2",
+            "description": "Análise de Infra + Dirty Scraping (Analytics, Contatos, Tech)",
+            "version": "2.0"
+        }
+        self.cfg = ConfigManager()
 
-    def resolve_ip(self):
+    def run(self, url: str) -> bool:
+        """
+        Executa o pipeline completo de infraestrutura.
+        """
+        # 1. Normalização de URL
+        if not url.startswith("http"):
+            target_url = f"https://{url}"
+        else:
+            target_url = url
+        
+        domain = urlparse(target_url).netloc
+        
         try:
-            return socket.gethostbyname(self.domain)
+            # 2. Resolução de IP (DNS)
+            ip = self._resolve_ip(domain)
+            self.add_evidence("Endereço IP", ip, "high")
+
+            # 3. Dirty Scraping (A Mágica do STRX)
+            # Baixa o HTML para procurar segredos
+            html_content = self._fetch_html(target_url)
+            if html_content:
+                self._dirty_scrape(html_content)
+                self._get_favicon_hash(target_url, html_content)
+            
+            # 4. Integrações Externas (Se tiver chave)
+            # VirusTotal
+            vt_key = self.cfg.get_key("virustotal")
+            if vt_key and ip != "N/A":
+                self._check_virustotal(ip, vt_key)
+
+            return True
+
+        except Exception as e:
+            self.add_evidence("Erro de Execução", str(e), "low")
+            return False
+
+    def _resolve_ip(self, domain):
+        try:
+            return socket.gethostbyname(domain)
         except:
+            return "N/A"
+
+    def _fetch_html(self, url):
+        try:
+            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+            r = requests.get(url, headers=headers, verify=False, timeout=10)
+            return r.text
+        except Exception as e:
+            self.add_evidence("Erro de Conexão", f"Site inacessível: {str(e)}", "medium")
             return None
 
-    def get_favicon_hash(self):
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
-        icon_url = None
-        try:
-            try:
-                r = requests.get(self.url, headers=headers, verify=False, timeout=5)
-                soup = BeautifulSoup(r.content, 'html.parser')
-                icon_link = soup.find("link", rel=lambda x: x and 'icon' in x.lower())
-                if icon_link and icon_link.get('href'):
-                    icon_url = urljoin(self.url, icon_link.get('href'))
-            except: pass
-            
-            if not icon_url: icon_url = f"{self.url.rstrip('/')}/favicon.ico"
+    def _dirty_scrape(self, html):
+        """
+        O 'Dirty Scraper': Usa Regex para achar agulha no palheiro.
+        Inspirado no STRX.
+        """
+        # Padrões de Regex
+        patterns = {
+            "Google Analytics (UA)": r"UA-[0-9]+-[0-9]+",
+            "Google Tag (G-)": r"G-[A-Z0-9]{10,}",
+            "Meta Pixel": r"fbq\('init',\s*'([0-9]+)'\)",
+            "E-mails": r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}",
+            "Telefones (BR)": r"(?:(?:\+|00)?(55)\s?)?(?:\(?([1-9][0-9])\)?\s?)?(?:((?:9\d|[2-9])\d{3})\-?(\d{4}))"
+        }
 
-            r = requests.get(icon_url, headers=headers, verify=False, timeout=8)
+        found_tech = []
+
+        for label, pattern in patterns.items():
+            matches = list(set(re.findall(pattern, html))) # Remove duplicatas
+            if matches:
+                # Limpa resultados de telefone para ficar legível
+                if "Telefone" in label:
+                    matches = [f"{m[1]} {m[2]}-{m[3]}" for m in matches if m[1]] # Filtra vazios
+
+                if matches:
+                    self.add_evidence(f"Scraping: {label}", ", ".join(matches[:5]), "high")
+                    found_tech.append(label)
+
+        if not found_tech:
+            self.add_evidence("Scraping", "Nenhum identificador oculto encontrado.", "low")
+
+    def _get_favicon_hash(self, url, html):
+        """Calcula o Hash do ícone para buscar servidores reais no Shodan."""
+        try:
+            soup = BeautifulSoup(html, 'html.parser')
+            icon_link = soup.find("link", rel=lambda x: x and 'icon' in x.lower())
+            
+            favicon_url = f"{url}/favicon.ico" # Fallback
+            if icon_link and icon_link.get('href'):
+                href = icon_link.get('href')
+                if href.startswith("http"): favicon_url = href
+                else: favicon_url = f"{url.rstrip('/')}/{href.lstrip('/')}"
+
+            r = requests.get(favicon_url, verify=False, timeout=5)
             if r.status_code == 200:
                 favicon_base64 = codecs.encode(r.content, 'base64')
                 hash_val = mmh3.hash(favicon_base64)
-                return hash_val, f"https://www.shodan.io/search?query=http.favicon.hash%3A{hash_val}"
-            return None, None
-        except: return None, None
+                self.add_evidence("Favicon Hash", str(hash_val), "high")
+                # Link útil para o analista
+                self.add_evidence("Shodan Dork", f"http.favicon.hash:{hash_val}", "high")
+        except:
+            pass
 
-class WhoisIntel:
-    """Consulta dados de Registro de Domínio (O 'RG' do site)."""
-    def get_whois(self, domain):
+    def _check_virustotal(self, ip, key):
+        """Consulta rápida de reputação (Free API)."""
         try:
-            w = whois.whois(domain)
-            
-            def clean(val):
-                if isinstance(val, list): return str(val[0])
-                return str(val) if val else "N/A"
-
-            return {
-                "registrar": clean(w.registrar),
-                "creation_date": clean(w.creation_date),
-                "emails": str(w.emails) if w.emails else "N/A",
-                "org": clean(w.org),
-                "name": clean(w.name),
-                "status": "Sucesso"
-            }
-        except Exception as e:
-            return {"status": "Erro", "error": str(e)}
-
-class IPGeo:
-    def get_data(self, ip):
-        try:
-            r = requests.get(f"http://ip-api.com/json/{ip}?fields=status,country,isp,org,as", timeout=5)
-            if r.status_code == 200 and r.json().get('status') == 'success':
-                data = r.json()
-                return f"{data['isp']} ({data['country']}) - {data['as']}"
-        except: pass
-        return "Dados Indisponíveis"
-
-class VirusTotalIntel:
-    def __init__(self, api_key):
-        self.key = api_key
-        self.base = "https://www.virustotal.com/api/v3/ip_addresses"
-
-    def analyze_ip(self, ip):
-        if not self.key: return None
-        headers = {"x-apikey": self.key}
-        try:
-            r = requests.get(f"{self.base}/{ip}", headers=headers, timeout=10)
+            headers = {"x-apikey": key}
+            r = requests.get(f"https://www.virustotal.com/api/v3/ip_addresses/{ip}", headers=headers, timeout=5)
             if r.status_code == 200:
-                data = r.json().get('data', {}).get('attributes', {})
-                stats = data.get('last_analysis_stats', {})
-                total_bad = stats.get('malicious', 0) + stats.get('suspicious', 0)
-                
-                verdict = "✅ LIMPO"
-                if total_bad > 0: verdict = f"⚠️ SUSPEITO ({total_bad} detectções)"
-                if total_bad > 5: verdict = f"🚨 MALICIOSO ({total_bad} detectções)"
-                
-                return {
-                    "verdict": verdict,
-                    "owner": data.get('as_owner', 'N/A'),
-                    "country": data.get('country', 'N/A')
-                }
-            elif r.status_code == 401: return {"error": "Key Inválida"}
-            elif r.status_code == 429: return {"error": "Limite Excedido"}
-        except Exception as e: return {"error": str(e)}
-        return None
-
-class CertificateHunter:
-    def get_subdomains(self, domain):
-        try:
-            r = requests.get(f"https://crt.sh/?q=%.{domain}&output=json", timeout=15)
-            if r.status_code == 200:
-                subs = set()
-                for entry in r.json():
-                    name_val = entry.get('name_value', '')
-                    for s in name_val.split('\n'):
-                        if s and '*' not in s: subs.add(s.lower())
-                return list(subs)
-        except: pass
-        return []
-
-class ShodanIntel:
-    def __init__(self, api_key):
-        self.api = shodan.Shodan(api_key)
-
-    def enrich_target(self, ip, favicon_hash=None):
-        intel = {"strategy": "N/A", "data": [], "error": None}
-        if favicon_hash:
-            try:
-                res = self.api.search(f"http.favicon.hash:{favicon_hash}", limit=5)
-                intel["strategy"] = "Hash Search"
-                intel["data"] = res['matches']
-                return intel
-            except: pass
-        if ip:
-            try:
-                host = self.api.host(ip)
-                intel["strategy"] = "IP Lookup"
-                intel["data"] = [host]
-                return intel
-            except Exception as e: intel["error"] = str(e)
-        return intel
+                stats = r.json().get('data', {}).get('attributes', {}).get('last_analysis_stats', {})
+                malicious = stats.get('malicious', 0)
+                if malicious > 0:
+                    self.add_evidence("VirusTotal", f"⚠️ DETECTADO como malicioso por {malicious} motores.", "high")
+                else:
+                    self.add_evidence("VirusTotal", "✅ IP Limpo (0 detecções).", "medium")
+        except:
+            pass

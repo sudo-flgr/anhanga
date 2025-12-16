@@ -1,9 +1,16 @@
 {
     "meta": {
-        "start": "2025-12-16 07:40:42.881699",
+        "start": "2025-12-16 07:50:17.883316",
         "case_name": "OP_DEFAULT"
     },
     "entities": [],
-    "infra": [],
+    "infra": [
+        {
+            "domain": "https://executivedigest.sapo.pt/",
+            "ip": "176.61.151.48",
+            "info": "Endereço IP: 176.61.151.48\nScraping: Google Tag (G-): G-GTK3GBH2KJ\nScraping: Telefones (BR): 71 5184-2806, 11 8786-2392, 17 6399-6825, 14 8937-5577, 24 5066-3680\nFavicon Hash: 803208888\nShodan Dork: http.favicon.hash:803208888\nVirusTotal: ✅ IP Limpo (0 detecções).\n",
+            "timestamp": "2025-12-16 07:51:02.471303"
+        }
+    ],
     "relations": []
 }
