@@ -24,20 +24,33 @@ engine = InvestigationEngine()
 def print_banner():
     banner = """
     [bold green]
-       ▄▄▄       ███▄    █  ██░ ██  ▄▄▄       ███▄    █   ▄████  ▄▄▄      
-      ▒████▄     ██ ▀█   █ ▓██░ ██▒▒████▄     ██ ▀█   █  ██▒ ▀█▒▒████▄    
+                                  # #### ####
+                                ### \/#|### |/####
+                               ##\/#/ \||/##/_/##/_#
+                             ###  \/###|/ \/ # ###
+                           ##_\_#\_\## | #/###_/_####
+                          ## #### # \ #| /  #### ##/##
+                           __#_--###`  |{,###---###-~
+                                     \ }{
+                                      }}{
+                                      }}{
+                                      {{}
+                                , -=-~{ .-^- _
+                                      `}
+                                       {
+       ▄▄▄       ███▄    █  ██░ ██  ▄▄▄       ███▄    █   ▄████  ▄▄▄       █
+      ▒████▄     ██ ▀█   █ ▓██░ ██▒▒████▄     ██ ▀█   █  ██▒ ▀█▒▒████▄    █
       ▒██  ▀█▄  ▓██  ▀█ ██▒▒██▀▀██░▒██  ▀█▄  ▓██  ▀█ ██▒▒██░▄▄▄░▒██  ▀█▄  
       ░██▄▄▄▄██ ▓██▒  ▐▌██▒░▓█ ░██ ░██▄▄▄▄██ ▓██▒  ▐▌██▒░▓█  ██▓░██▄▄▄▄██ 
        ▓█   ▓██▒▒██░   ▓██░░▓█▒░██▓ ▓█   ▓██▒▒██░   ▓██░░▒▓███▀▒ ▓█   ▓██▒
-       ▒▒   ▓▒█░░ ▒░   ▒ ▒  ▒ ░░▒░▒ ▒▒   ▓▒█░░ ▒░   ▒ ▒  ░▒   ▒  ▒▒   ▓▒█░
+       ▒▒   ▓▒█░░ ▒░   ▒ ▒  ▒ ░░▒░▒ ▒▒   ▓▒█░░ ▒░   ▒ ▒  ░▒   ▒  ▒▒   ▓▒█░     
     [/bold green]
-    [bold yellow]   SWAT INTELLIGENCE FRAMEWORK v2.1 (Modular)[/bold yellow]
+    [bold yellow]   SWAT INTELLIGENCE FRAMEWORK v2.1[/bold yellow]
     """
     console.print(banner)
 
 @app.command()
 def investigate():
-    """Modo Guiado v2.0: Pipeline Completo (Pix -> Crypto -> Infra Dirty)."""
     print_banner()
     
     if Confirm.ask("[bold yellow]1. Deseja iniciar uma NOVA operação?[/bold yellow]"):
