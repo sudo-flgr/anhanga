@@ -22,7 +22,7 @@ engine = InvestigationEngine()
 
 @app.command()
 def print_banner():
-    banner = """
+    banner = r"""
     [bold green]
                                   # #### ####
                                 ### \/#|### |/####
@@ -45,8 +45,8 @@ def print_banner():
        ▓█   ▓██▒▒██░   ▓██░░▓█▒░██▓ ▓█   ▓██▒▒██░   ▓██░░▒▓███▀▒ ▓█   ▓██▒
        ▒▒   ▓▒█░░ ▒░   ▒ ▒  ▒ ░░▒░▒ ▒▒   ▓▒█░░ ▒░   ▒ ▒  ░▒   ▒  ▒▒   ▓▒█░     
     [/bold green]
-    [bold yellow]   SWAT INTELLIGENCE FRAMEWORK v2.1[/bold yellow]
-    """
+            [bold white]Financial Crime & Cyber Threat Intelligence[/bold white] [bold cyan]v2.1[/bold cyan]
+   """
     console.print(banner)
 
 @app.command()
