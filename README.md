@@ -1,11 +1,14 @@
 <div align="center">
-  <h1>ANHANGÁ</h1>
+  <img src="assets/logo.png" alt="Anhangá Logo" width="450">
+  
+  <h1>🌿 ANHANGÁ 🌿</h1>
+  
   <p>
     <b>Financial Crime & Cyber Threat Intelligence Framework</b>
   </p>
- <img src="assets/logo.png" alt="Anhangá Logo" width="450">
+
   <p>
-    <a href="https://github.com/seu-usuario/anhanga">
+    <a href="https://github.com/felipeluan20/anhanga">
       <img src="https://img.shields.io/badge/version-2.1-green" alt="Version">
     </a>
     <a href="https://python.org">
@@ -16,8 +19,6 @@
     </a>
   </p>
 </div>
-
-<br />
 
 ## 👹 A Origem & O Propósito
 
