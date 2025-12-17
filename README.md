@@ -86,3 +86,55 @@ O comando principal que aciona todos os motores sequencialmente:
 
 ```bash
 python anhanga.py investigate
+````
+
+O framework irá guiá-lo automaticamente pelas seguintes fases:
+
+* **Financeiro**
+  Cole um **Pix Copia-e-Cola** ou uma **carteira de criptomoeda**.
+
+* **Infraestrutura**
+  Insira a **URL** do site suspeito para análise de rede e serviços.
+
+* **Identidade**
+  Informe um **e-mail** identificado durante a investigação.
+
+* **Relatório**
+  A **IA** processa todos os dados correlacionados e gera um **relatório final em Markdown**.
+
+---
+
+### ⚙️ Configurações (Opcional)
+
+Para habilitar recursos avançados, como análise de reputação e enriquecimento externo, configure suas chaves de API:
+
+```bash
+python anhanga.py config --set-vt "SUA_KEY_VIRUSTOTAL"
+```
+
+---
+
+## 📂 Estrutura Modular
+
+```text
+anhanga/
+├── anhanga.py                # Orquestrador CLI (Typer)
+├── core/
+│   ├── engine.py             # Motor de carregamento dinâmico (Plugin System)
+│   └── base.py               # Contrato de módulos (Interface)
+├── modules/
+│   ├── fincrime/             # Pix Decoder (CRC16) & Validators
+│   ├── crypto/               # Crypto Hunter (Blockchain)
+│   ├── infra/                # Dirty Scraper & Network Analysis
+│   ├── identity/             # OSINT de e-mail & leaks
+│   └── reporter/             # Redator IA (Ollama)
+└── requirements.txt
+```
+
+---
+
+## ⚠️ Disclaimer & Ética
+
+Esta ferramenta é uma **Prova de Conceito (PoC)** desenvolvida para **Analistas de Defesa**, **Threat Intelligence** e **Pesquisadores de Segurança**.
+
+O uso do **Anhangá** para rastrear ou investigar alvos **sem autorização prévia** ou fora de um **contexto legal legítimo** pode violar legislações de privacidade (como a **LGPD**) e leis relacionadas a crimes cibernéticos.
