@@ -2,7 +2,8 @@
 import json
 import os
 
-CONFIG_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config.json")
+# Points to root/config.json assuming src layout
+CONFIG_FILE = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../config.json"))
 
 class ConfigManager:
     def __init__(self):

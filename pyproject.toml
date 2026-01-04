@@ -1,0 +1,29 @@
+[tool.poetry]
+name = "anhanga"
+version = "2.1.0"
+description = "Financial Crime & Cyber Threat Intelligence"
+authors = ["Anhangá Core"]
+packages = [{include = "anhanga", from = "src"}]
+
+[tool.poetry.scripts]
+anhanga = "anhanga.cli:app"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+typer = "*"
+rich = "*"
+requests = "*"
+beautifulsoup4 = "*"
+ollama = "*"
+mmh3 = "*"
+shodan = "*"
+python-whois = "*"
+pyvis = "*"
+crcmod = "*"
+langgraph = "*"
+camoufox = "*"
+networkx = "*"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
