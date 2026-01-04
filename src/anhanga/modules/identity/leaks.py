@@ -1,7 +1,7 @@
 # Arquivo: anhanga/modules/identity/leaks.py
 import requests
-from core.base import AnhangáModule
-from core.config import ConfigManager
+from anhanga.core.base import AnhangáModule
+from anhanga.core.config import ConfigManager
 
 class LeakModule(AnhangáModule):
     def __init__(self):

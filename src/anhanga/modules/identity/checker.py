@@ -1,6 +1,6 @@
 import requests
 import hashlib
-from core.base import AnhangáModule
+from anhanga.core.base import AnhangáModule
 
 class IdentityModule(AnhangáModule):
     def __init__(self):

@@ -6,12 +6,11 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Prompt, Confirm
 from rich.markdown import Markdown
-current_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(current_dir)
-from core.engine import InvestigationEngine
-from core.config import ConfigManager
-from core.database import CaseManager
-from modules.reporter.writer import AIReporter 
+
+from anhanga.core.engine import InvestigationEngine
+from anhanga.core.config import ConfigManager
+from anhanga.core.database import CaseManager
+from anhanga.modules.reporter.writer import AIReporter
 
 app = typer.Typer(help="Anhangá - Cyber Defense Framework")
 console = Console()

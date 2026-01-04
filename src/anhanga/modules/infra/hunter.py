@@ -6,8 +6,8 @@ import mmh3
 import codecs
 from urllib.parse import urlparse
 from bs4 import BeautifulSoup
-from core.base import AnhangáModule
-from core.config import ConfigManager
+from anhanga.core.base import AnhangáModule
+from anhanga.core.config import ConfigManager
 
 # Suprime avisos de SSL (comum em sites de phishing)
 import urllib3

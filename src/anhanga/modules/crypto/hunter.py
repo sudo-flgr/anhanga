@@ -1,7 +1,7 @@
 # Arquivo: anhanga/modules/crypto/hunter.py
 import re
 import requests
-from core.base import AnhangáModule
+from anhanga.core.base import AnhangáModule
 
 class CryptoModule(AnhangáModule):
     def __init__(self):

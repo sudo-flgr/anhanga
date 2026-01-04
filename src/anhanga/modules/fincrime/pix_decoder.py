@@ -1,5 +1,5 @@
 import crcmod
-from core.base import AnhangáModule
+from anhanga.core.base import AnhangáModule
 
 class PixModule(AnhangáModule):
     def __init__(self):

@@ -1,7 +1,7 @@
 # Arquivo: anhanga/core/engine.py
 import importlib
 from rich.console import Console
-from core.base import AnhangáModule # <--- Import Corrigido
+from anhanga.core.base import AnhangáModule # <--- Import Corrigido
 
 console = Console()
 
@@ -14,7 +14,7 @@ class InvestigationEngine:
         Carrega dinamicamente um módulo (ex: 'fincrime', 'pix_decoder').
         """
         try:
-            module_path = f"modules.{category}.{module_name}"
+            module_path = f"anhanga.modules.{category}.{module_name}"
             
             mod = importlib.import_module(module_path)
             
