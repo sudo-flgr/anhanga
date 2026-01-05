@@ -10,6 +10,7 @@ import operator
 from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.memory import MemorySaver
 from rich.console import Console
+from anhanga.modules.fincrime.compliance.validator import BetCompliance
 
 # Suprime avisos de SSL (comum em sites de phishing)
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -28,6 +29,10 @@ class AgentState(TypedDict):
     status: str  # 'success', 'failed', 'pending'
     retry_count: int
     errors: List[str]
+    compliance_result: Optional[Dict[str, Any]]
+
+# Initialize Compliance Validator
+compliance_validator = BetCompliance()
 
 def infra_hunter_node(state: AgentState) -> AgentState:
     """
@@ -143,6 +148,31 @@ def standard_scraper_node(state: AgentState) -> AgentState:
         
     return state
 
+def compliance_check_node(state: AgentState) -> AgentState:
+    """
+    Compliance Check: Verifies if the domain is authorized.
+    """
+    url = state["url"]
+    console.print(f"[bold blue][ComplianceCheck][/bold blue] Verificando conformidade para {url}...")
+
+    try:
+        result = compliance_validator.check_compliance(url)
+        state["compliance_result"] = result
+
+        status = result["status"]
+        color = "green" if status == "AUTHORIZED" else "red"
+        console.print(f"[{color}][ComplianceCheck] Status: {status}[/{color}]")
+        if status == "AUTHORIZED":
+            console.print(f"[{color}]Operator: {result.get('operator')}[/{color}]")
+        else:
+            console.print(f"[{color}]Reason: {result.get('reason')}[/{color}]")
+
+    except Exception as e:
+        console.print(f"[bold red][ComplianceCheck] Erro: {e}[/bold red]")
+        state["errors"].append(f"ComplianceCheck Error: {str(e)}")
+
+    return state
+
 def route_protection(state: AgentState) -> str:
     """
     Router: Decides next step based on protection detection.
@@ -159,6 +189,7 @@ workflow = StateGraph(AgentState)
 workflow.add_node("infra_hunter", infra_hunter_node)
 workflow.add_node("stealth_scraper", stealth_scraper_node)
 workflow.add_node("standard_scraper", standard_scraper_node)
+workflow.add_node("compliance_check", compliance_check_node)
 
 workflow.add_edge(START, "infra_hunter")
 
@@ -171,8 +202,9 @@ workflow.add_conditional_edges(
     }
 )
 
-workflow.add_edge("stealth_scraper", END)
-workflow.add_edge("standard_scraper", END)
+workflow.add_edge("stealth_scraper", "compliance_check")
+workflow.add_edge("standard_scraper", "compliance_check")
+workflow.add_edge("compliance_check", END)
 
 memory = MemorySaver()
 
@@ -190,7 +222,8 @@ async def run_investigation_async(url: str, thread_id: str = "1") -> Dict[str, A
         "screenshot_path": None,
         "status": "pending",
         "retry_count": 0,
-        "errors": []
+        "errors": [],
+        "compliance_result": None
     }
     
     config = {"configurable": {"thread_id": thread_id}}

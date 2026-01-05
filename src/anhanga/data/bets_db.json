@@ -1,0 +1,38 @@
+{
+  "metadata": {
+    "source": "SPA/MF & Judicial Decisions",
+    "version": "PROD-2026"
+  },
+  "whitelist": [
+    {
+      "operator": "KAIZEN GAMING BRASIL LTDA",
+      "cnpj": "46.786.961/0001-74",
+      "brands": ["BETANO"],
+      "domains": ["betano.bet.br"],
+      "auth_type": "ADMINISTRATIVE"
+    },
+    {
+      "operator": "SPRBT INTERACTIVE BRASIL LTDA",
+      "cnpj": "54.071.596/0001-40",
+      "brands": ["SUPERBET"],
+      "domains": ["superbet.bet.br", "super.bet.br"],
+      "auth_type": "ADMINISTRATIVE"
+    },
+    {
+      "operator": "BPX BETS SPORTS GROUP LTDA",
+      "cnpj": "55.590.815/0001-60",
+      "brands": ["VAIDEBET"],
+      "domains": ["vaidebet.bet.br"],
+      "auth_type": "JUDICIAL",
+      "notes": "Processo 1005404-58.2025.4.01.3400"
+    },
+    {
+      "operator": "ZEROUMBET PLATAFORMA DIGITAL LTDA",
+      "cnpj": "55.997.392/0001-05",
+      "brands": ["ZEROUM", "ENERGIA"],
+      "domains": ["zeroum.bet", "energia.bet"],
+      "auth_type": "JUDICIAL",
+      "notes": "Liminar permite domínio sem .br (Proc 5007941-50.2025.4.03.6100)"
+    }
+  ]
+}
