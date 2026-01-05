@@ -9,7 +9,6 @@ from bs4 import BeautifulSoup
 from anhanga.core.base import AnhangáModule
 from anhanga.core.config import ConfigManager
 
-# Suprime avisos de SSL (comum em sites de phishing)
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -27,7 +26,6 @@ class InfraModule(AnhangáModule):
         """
         Executa o pipeline completo de infraestrutura.
         """
-        # 1. Normalização de URL
         if not url.startswith("http"):
             target_url = f"https://{url}"
         else:
@@ -36,19 +34,14 @@ class InfraModule(AnhangáModule):
         domain = urlparse(target_url).netloc
         
         try:
-            # 2. Resolução de IP (DNS)
             ip = self._resolve_ip(domain)
             self.add_evidence("Endereço IP", ip, "high")
 
-            # 3. Dirty Scraping (A Mágica do STRX)
-            # Baixa o HTML para procurar segredos
             html_content = self._fetch_html(target_url)
             if html_content:
                 self._dirty_scrape(html_content)
                 self._get_favicon_hash(target_url, html_content)
             
-            # 4. Integrações Externas (Se tiver chave)
-            # VirusTotal
             vt_key = self.cfg.get_key("virustotal")
             if vt_key and ip != "N/A":
                 self._check_virustotal(ip, vt_key)
@@ -79,7 +72,6 @@ class InfraModule(AnhangáModule):
         O 'Dirty Scraper': Usa Regex para achar agulha no palheiro.
         Inspirado no STRX.
         """
-        # Padrões de Regex
         patterns = {
             "Google Analytics (UA)": r"UA-[0-9]+-[0-9]+",
             "Google Tag (G-)": r"G-[A-Z0-9]{10,}",
@@ -91,11 +83,10 @@ class InfraModule(AnhangáModule):
         found_tech = []
 
         for label, pattern in patterns.items():
-            matches = list(set(re.findall(pattern, html))) # Remove duplicatas
+            matches = list(set(re.findall(pattern, html)))
             if matches:
-                # Limpa resultados de telefone para ficar legível
                 if "Telefone" in label:
-                    matches = [f"{m[1]} {m[2]}-{m[3]}" for m in matches if m[1]] # Filtra vazios
+                    matches = [f"{m[1]} {m[2]}-{m[3]}" for m in matches if m[1]]
 
                 if matches:
                     self.add_evidence(f"Scraping: {label}", ", ".join(matches[:5]), "high")
@@ -110,7 +101,7 @@ class InfraModule(AnhangáModule):
             soup = BeautifulSoup(html, 'html.parser')
             icon_link = soup.find("link", rel=lambda x: x and 'icon' in x.lower())
             
-            favicon_url = f"{url}/favicon.ico" # Fallback
+            favicon_url = f"{url}/favicon.ico"
             if icon_link and icon_link.get('href'):
                 href = icon_link.get('href')
                 if href.startswith("http"): favicon_url = href
@@ -121,7 +112,6 @@ class InfraModule(AnhangáModule):
                 favicon_base64 = codecs.encode(r.content, 'base64')
                 hash_val = mmh3.hash(favicon_base64)
                 self.add_evidence("Favicon Hash", str(hash_val), "high")
-                # Link útil para o analista
                 self.add_evidence("Shodan Dork", f"http.favicon.hash:{hash_val}", "high")
         except:
             pass

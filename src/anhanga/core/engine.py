@@ -2,6 +2,7 @@ import logging
 import asyncio
 import os
 import requests
+import urllib3
 from datetime import datetime
 from typing import TypedDict, Annotated, List, Dict, Any, Optional
 import operator
@@ -10,13 +11,13 @@ from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.memory import MemorySaver
 from rich.console import Console
 
-# Configure Logging
+# Suprime avisos de SSL (comum em sites de phishing)
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 console = Console()
-
-# --- DEFINITIONS ---
 
 class AgentState(TypedDict):
     url: str
@@ -28,26 +29,21 @@ class AgentState(TypedDict):
     retry_count: int
     errors: List[str]
 
-# --- NODES ---
-
 def infra_hunter_node(state: AgentState) -> AgentState:
     """
     First node: Checks for infrastructure and protection mechanisms (like Cloudflare).
     """
     url = state["url"]
-    console.print(f"[bold blue][InfraHunter][/bold blue] Analyzing: {url}")
+    console.print(f"[bold blue][InfraHunter][/bold blue] Analisando: {url}")
     
-    # Initialize defaults
     state.setdefault("retry_count", 0)
     state.setdefault("errors", [])
     state.setdefault("screenshot_path", None)
     
     try:
-        # Lightweight request to detect WAF/CDN
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
-        # Verify=False to avoid SSL issues on target
         response = requests.get(url, headers=headers, timeout=10, verify=False)
         
         server_header = response.headers.get("Server", "").lower()
@@ -56,23 +52,19 @@ def infra_hunter_node(state: AgentState) -> AgentState:
         
         state["headers"] = dict(response.headers)
         
-        # Detection logic
         is_cloudflare = "cloudflare" in server_header or cf_ray is not None
-        
-        # Check for challenge pages (403/503 often used by WAFs)
         is_challenge = status_code in [403, 503]
         
         if is_cloudflare or (is_challenge and is_cloudflare):
-            console.print(f"[bold yellow][InfraHunter][/bold yellow] Cloudflare detected! (Server: {server_header})")
+            console.print(f"[bold yellow][InfraHunter][/bold yellow] [!] Proteção Cloudflare detectada! (Server: {server_header})")
             state["protection_type"] = "Cloudflare"
         else:
-            console.print("[bold green][InfraHunter][/bold green] No heavy protection detected.")
+            console.print("[bold green][InfraHunter][/bold green] Nenhuma proteção pesada detectada.")
             state["protection_type"] = "None"
             
     except Exception as e:
-        console.print(f"[bold red][InfraHunter] Error: {e}[/bold red]")
+        console.print(f"[bold red][InfraHunter] Erro: {e}[/bold red]")
         state["errors"].append(f"InfraHunter Error: {str(e)}")
-        # Default to None to try standard scraper or fail gracefully
         state["protection_type"] = "None" 
         
     return state
@@ -82,12 +74,12 @@ async def stealth_scraper_node(state: AgentState) -> AgentState:
     Stealth Scraper: Uses AsyncCamoufox to bypass protections and take screenshots.
     """
     url = state["url"]
-    console.print(f"[bold magenta][StealthScraper][/bold magenta] Engaging Camoufox for {url}...")
+    console.print(f"[bold magenta][StealthScraper][/bold magenta] [~] Iniciando modo Stealth (Camoufox) para {url}...")
     
     try:
         from camoufox.async_api import AsyncCamoufox
     except ImportError:
-        msg = "Camoufox library not found. Install it to use StealthScraper."
+        msg = "Biblioteca Camoufox não encontrada. Instale-a para usar o StealthScraper."
         console.print(f"[bold red]{msg}[/bold red]")
         state["errors"].append(msg)
         state["status"] = "failed"
@@ -97,33 +89,28 @@ async def stealth_scraper_node(state: AgentState) -> AgentState:
         async with AsyncCamoufox(headless=True) as browser:
             page = await browser.new_page()
             
-            # Stealth navigation
             await page.goto(url, timeout=60000, wait_until="domcontentloaded")
-            
-            # Simple wait for hydration/challenges
             await page.wait_for_load_state("networkidle", timeout=10000)
             
-            # Screenshot Logic
             screenshots_dir = "screenshots"
             if not os.path.exists(screenshots_dir):
                 os.makedirs(screenshots_dir)
                 
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            # Sanitize URL for filename
             safe_url = "".join(c if c.isalnum() else "_" for c in url)[:50]
             screenshot_path = os.path.join(screenshots_dir, f"{safe_url}_{timestamp}.png")
             
             await page.screenshot(path=screenshot_path)
             state["screenshot_path"] = screenshot_path
-            console.print(f"[bold magenta][StealthScraper][/bold magenta] Screenshot saved to {screenshot_path}")
+            console.print(f"[bold magenta][StealthScraper][/bold magenta] Screenshot salvo em {screenshot_path}")
 
             content = await page.content()
             state["html"] = content
             state["status"] = "success"
-            console.print(f"[bold magenta][StealthScraper][/bold magenta] Success. Content length: {len(content)}")
+            console.print(f"[bold magenta][StealthScraper][/bold magenta] [+] Sucesso. Tamanho do conteúdo: {len(content)}")
             
     except Exception as e:
-        console.print(f"[bold red][StealthScraper] Error: {e}[/bold red]")
+        console.print(f"[bold red][StealthScraper] Erro: {e}[/bold red]")
         state["errors"].append(f"StealthScraper Error: {str(e)}")
         state["status"] = "failed"
         state["retry_count"] += 1
@@ -135,7 +122,7 @@ def standard_scraper_node(state: AgentState) -> AgentState:
     Standard Scraper: Uses standard Requests.
     """
     url = state["url"]
-    console.print(f"[bold cyan][StandardScraper][/bold cyan] Fetching {url} with requests...")
+    console.print(f"[bold cyan][StandardScraper][/bold cyan] Buscando {url} com requests...")
     
     try:
         headers = {
@@ -146,18 +133,15 @@ def standard_scraper_node(state: AgentState) -> AgentState:
         
         state["html"] = response.text
         state["status"] = "success"
-        # Requests cannot take screenshots
-        console.print(f"[bold cyan][StandardScraper][/bold cyan] Success. Content length: {len(response.text)}")
+        console.print(f"[bold cyan][StandardScraper][/bold cyan] [+] Sucesso. Tamanho do conteúdo: {len(response.text)}")
         
     except Exception as e:
-        console.print(f"[bold red][StandardScraper] Error: {e}[/bold red]")
+        console.print(f"[bold red][StandardScraper] Erro: {e}[/bold red]")
         state["errors"].append(f"StandardScraper Error: {str(e)}")
         state["status"] = "failed"
         state["retry_count"] += 1
         
     return state
-
-# --- ROUTING ---
 
 def route_protection(state: AgentState) -> str:
     """
@@ -170,16 +154,12 @@ def route_protection(state: AgentState) -> str:
     
     return "standard_scraper"
 
-# --- GRAPH CONSTRUCTION ---
-
 workflow = StateGraph(AgentState)
 
-# Add Nodes
 workflow.add_node("infra_hunter", infra_hunter_node)
 workflow.add_node("stealth_scraper", stealth_scraper_node)
 workflow.add_node("standard_scraper", standard_scraper_node)
 
-# Add Edges
 workflow.add_edge(START, "infra_hunter")
 
 workflow.add_conditional_edges(
@@ -194,13 +174,9 @@ workflow.add_conditional_edges(
 workflow.add_edge("stealth_scraper", END)
 workflow.add_edge("standard_scraper", END)
 
-# Persistence
 memory = MemorySaver()
 
-# Compilation
 investigation_graph = workflow.compile(checkpointer=memory)
-
-# --- EXECUTION HELPERS ---
 
 async def run_investigation_async(url: str, thread_id: str = "1") -> Dict[str, Any]:
     """
@@ -219,7 +195,6 @@ async def run_investigation_async(url: str, thread_id: str = "1") -> Dict[str, A
     
     config = {"configurable": {"thread_id": thread_id}}
     
-    # Run the graph
     result_state = await investigation_graph.ainvoke(initial_state, config=config)
     return result_state
 
