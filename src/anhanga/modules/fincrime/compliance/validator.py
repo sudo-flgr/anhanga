@@ -8,31 +8,7 @@ class BetCompliance:
         if db_path is None:
             # Determine path relative to this file
             base_dir = os.path.dirname(os.path.abspath(__file__))
-            # Assuming src/anhanga/modules/fincrime/compliance/validator.py
-            # and src/anhanga/data/bets_db.json
-            # We need to go up 3 levels to src/anhanga and then into data
-            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(base_dir))))
-            # Wait, base_dir is src/anhanga/modules/fincrime/compliance
-            # up 1: fincrime
-            # up 2: modules
-            # up 3: anhanga
-            # up 4: src
-            # Actually, let's use a simpler way or the provided path structure
-            # src/anhanga/modules/fincrime/compliance/validator.py
-            # src/anhanga/data/bets_db.json
-
-            # Use relative import based on expected project structure
-            # from validator.py (compliance) -> fincrime -> modules -> anhanga -> data
-            root_module_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(base_dir))))
-            # This calculation seems fragile if executed from different places,
-            # but usually reliable if installed as package.
-            # However, safer to rely on 'src/anhanga' if we know the anchor.
-
-            # Let's try to find 'src/anhanga/data/bets_db.json' relative to cwd or use relative path from this file.
-            # this file: .../src/anhanga/modules/fincrime/compliance/validator.py
-            # want: .../src/anhanga/data/bets_db.json
-
-            # ../../../data/bets_db.json
+            # Path to src/anhanga/data/bets_db.json relative to this file
             db_path = os.path.join(base_dir, "..", "..", "..", "data", "bets_db.json")
 
         self.db_path = os.path.abspath(db_path)
@@ -46,10 +22,10 @@ class BetCompliance:
                 self.whitelist = data.get("whitelist", [])
         except FileNotFoundError:
             # Fallback or empty if file not found (should handle error properly in production)
-            print(f"Warning: Database file not found at {self.db_path}")
+            print(f"Aviso: Arquivo de banco de dados não encontrado em {self.db_path}")
             self.whitelist = []
         except Exception as e:
-            print(f"Error loading database: {e}")
+            print(f"Erro ao carregar banco de dados: {e}")
             self.whitelist = []
 
     def check_compliance(self, url: str) -> Dict[str, Any]:
@@ -92,10 +68,10 @@ class BetCompliance:
         if domain.endswith(".bet.br"):
             return {
                 "status": "UNLICENSED_SOVEREIGN",
-                "reason": "Domain ends with .bet.br but is not in whitelist"
+                "reason": "Domínio termina com .bet.br mas não está na whitelist"
             }
         else:
             return {
                 "status": "ILLEGAL_FOREIGN",
-                "reason": "Foreign domain not in whitelist"
+                "reason": "Domínio estrangeiro não encontrado na whitelist"
             }
