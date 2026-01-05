@@ -1,1 +1,7 @@
-investigation_current.json
+__pycache__/
+*.py[cod]
+.env
+venv/
+.venv/
+.vscode/
+screenshots/

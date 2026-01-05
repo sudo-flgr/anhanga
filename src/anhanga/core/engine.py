@@ -69,7 +69,7 @@ def infra_hunter_node(state: AgentState) -> AgentState:
             
     except Exception as e:
         console.print(f"[bold red][InfraHunter] Erro: {e}[/bold red]")
-        state["errors"].append(f"InfraHunter Error: {str(e)}")
+        state["errors"].append(f"Erro no InfraHunter: {str(e)}")
         state["protection_type"] = "None" 
         
     return state
@@ -116,7 +116,7 @@ async def stealth_scraper_node(state: AgentState) -> AgentState:
             
     except Exception as e:
         console.print(f"[bold red][StealthScraper] Erro: {e}[/bold red]")
-        state["errors"].append(f"StealthScraper Error: {str(e)}")
+        state["errors"].append(f"Erro no StealthScraper: {str(e)}")
         state["status"] = "failed"
         state["retry_count"] += 1
         
@@ -142,7 +142,7 @@ def standard_scraper_node(state: AgentState) -> AgentState:
         
     except Exception as e:
         console.print(f"[bold red][StandardScraper] Erro: {e}[/bold red]")
-        state["errors"].append(f"StandardScraper Error: {str(e)}")
+        state["errors"].append(f"Erro no StandardScraper: {str(e)}")
         state["status"] = "failed"
         state["retry_count"] += 1
         
@@ -160,16 +160,25 @@ def compliance_check_node(state: AgentState) -> AgentState:
         state["compliance_result"] = result
 
         status = result["status"]
+
+        # Translation map for status
+        status_map = {
+            "AUTHORIZED": "AUTORIZADO",
+            "UNLICENSED_SOVEREIGN": "NAO_LICENCIADO_SOBERANO",
+            "ILLEGAL_FOREIGN": "ILEGAL_ESTRANGEIRO"
+        }
+        status_display = status_map.get(status, status)
+
         color = "green" if status == "AUTHORIZED" else "red"
-        console.print(f"[{color}][ComplianceCheck] Status: {status}[/{color}]")
+        console.print(f"[{color}][ComplianceCheck] Status: {status_display}[/{color}]")
         if status == "AUTHORIZED":
-            console.print(f"[{color}]Operator: {result.get('operator')}[/{color}]")
+            console.print(f"[{color}]Operador: {result.get('operator')}[/{color}]")
         else:
-            console.print(f"[{color}]Reason: {result.get('reason')}[/{color}]")
+            console.print(f"[{color}]Motivo: {result.get('reason')}[/{color}]")
 
     except Exception as e:
         console.print(f"[bold red][ComplianceCheck] Erro: {e}[/bold red]")
-        state["errors"].append(f"ComplianceCheck Error: {str(e)}")
+        state["errors"].append(f"Erro no ComplianceCheck: {str(e)}")
 
     return state
 
