@@ -106,10 +106,30 @@ def scan(
     protection = state.get("protection_type", "Desconhecido")
     status = state.get("status", "N/A")
     screenshot = state.get("screenshot_path", "Nenhum")
+    infra_data = state.get("infra_data", {})
     
     infra_text = Text()
     infra_text.append(f"Proteção Detectada: {protection}\n", style="bold yellow" if protection != "None" else "green")
-    infra_text.append(f"Status da Coleta: {status}\n", style="white")
+    
+    # Enrich with Heavy Infra Data
+    if infra_data:
+        ip = infra_data.get("ip", "N/A")
+        tech = infra_data.get("tech", [])
+        emails = infra_data.get("emails", [])
+        
+        infra_text.append(f"IP do Servidor: {ip}\n", style="bold cyan")
+        
+        if tech:
+            infra_text.append("\n Tecnologias Detectadas:\n", style="bold white")
+            for t in tech:
+                infra_text.append(f"- {t}\n", style="dim")
+                
+        if emails:
+            infra_text.append("\n E-mails Encontrados (Scraping):\n", style="bold white")
+            for e in emails:
+                infra_text.append(f"- {e}\n", style="cyan underline")
+
+    infra_text.append(f"\nStatus da Coleta: {status}\n", style="white")
     if screenshot:
         infra_text.append(f"Evidência Visual: {screenshot}", style="blue underline")
     else:
@@ -193,7 +213,8 @@ def scan(
                     "date": time.strftime("%Y-%m-%d"),
                     "infra": {
                         "protection": protection,
-                        "status": status
+                        "status": status,
+                        "details": infra_data # Includes IP, Tech, etc
                     },
                     "compliance": comp_res,
                     "financial": fin_intel

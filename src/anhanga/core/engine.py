@@ -15,6 +15,7 @@ from rich.console import Console
 from anhanga.modules.fincrime.pix_decoder import PixIntelligence
 from anhanga.modules.crypto.wallet_hunter import WalletHunter
 from anhanga.modules.fincrime.compliance.validator import BetCompliance
+from anhanga.modules.infra.hunter import InfraModule
 
 # Configure Logging
 logging.basicConfig(level=logging.ERROR) 
@@ -32,14 +33,14 @@ class AgentState(TypedDict):
     retry_count: int
     errors: List[str]
     financial_intel: Dict[str, Any] 
-    compliance_result: Optional[Dict[str, Any]] 
+    compliance_result: Optional[Dict[str, Any]]
+    infra_data: Optional[Dict[str, Any]] # New Field for Rich Infra Data
 
 # --- NODES ---
 
 def infra_hunter_node(state: AgentState) -> AgentState:
     """
-    Checks infrastructure. 
-    NOTE: Regardless of detection, we will force Stealth Mode to ensure Screenshots.
+    Checks infrastructure using Heavy Infra logic (Ported from v2).
     """
     url = state["url"]
     
@@ -49,25 +50,53 @@ def infra_hunter_node(state: AgentState) -> AgentState:
     state.setdefault("screenshot_path", None)
     state.setdefault("financial_intel", {"risk_score": 0, "flags": [], "pix_data": [], "crypto_data": []})
     state.setdefault("compliance_result", None)
+    state.setdefault("infra_data", {})
     
     try:
-        # Lightweight request just for header analysis (optional now, but good for data)
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        # 1. Run Heavy Infra Module
+        infra_module = InfraModule()
+        infra_module.run(url)
+        results = infra_module.get_results()
+        
+        # 2. Parse Results into structured infra_data
+        infra_data = {
+            "ip": "N/A",
+            "tech": [],
+            "emails": [],
+            "favicon_hash": None,
+            "virustotal": None
         }
-        response = requests.get(url, headers=headers, timeout=10, verify=False)
         
-        server_header = response.headers.get("Server", "").lower()
-        cf_ray = response.headers.get("CF-RAY")
+        for res in results:
+            title = res.get("title")
+            content = res.get("content")
+            
+            if title == "Endereço IP":
+                infra_data["ip"] = content
+            elif "Scraping:" in title:
+                tech_name = title.replace("Scraping: ", "")
+                if "E-mails" in tech_name:
+                    infra_data["emails"].extend(content.split(", "))
+                else:
+                    infra_data["tech"].append(f"{tech_name}: {content}")
+            elif title == "Favicon Hash":
+                infra_data["favicon_hash"] = content
+            elif title == "VirusTotal":
+                infra_data["virustotal"] = content
+                
+        state["infra_data"] = infra_data
         
-        state["headers"] = dict(response.headers)
-        
-        is_cloudflare = "cloudflare" in server_header or cf_ray is not None
-        
-        if is_cloudflare:
-            state["protection_type"] = "Cloudflare"
-        else:
-            state["protection_type"] = "None"
+        # 3. Quick Cloudflare Check (to keep protection_type logic)
+        # Inherited from InfraModule result or re-check? 
+        # For safety/consistency with V3 flow, we'll assume Cloudflare if detected by InfraModule 
+        # OR just set it to 'Unknown' effectively, since we FORCE Stealth anyway.
+        # But let's check headers if available from a previous step (unlikely here) or just rely on InfraModule.
+        # InfraModule uses dirty scrape but doesn't explicitly output "Protection Type".
+        # Let's do a quick check on headers if InfraModule didn't break.
+        # Actually, InfraModule doesn't expose headers directly. 
+        # We will keep protection_type as "Unknown" or "Cloudflare" if IP is obscured?
+        # Let's just default to None, as StealthScraper handles everything.
+        state["protection_type"] = "Unknown"
             
     except Exception as e:
         state["errors"].append(f"InfraHunter Error: {str(e)}")
@@ -202,11 +231,10 @@ workflow = StateGraph(AgentState)
 # Add Nodes
 workflow.add_node("infra_hunter", infra_hunter_node)
 workflow.add_node("stealth_scraper", stealth_scraper_node)
-# Removed standard_scraper_node
 workflow.add_node("compliance_check", compliance_check_node)
 workflow.add_node("financial_analysis", financial_analysis_node)
 
-# Add Edges: Simple Linear Flow for Maximum Reliability
+# Add Edges: Simple Linear Flow
 workflow.add_edge(START, "infra_hunter")
 workflow.add_edge("infra_hunter", "stealth_scraper") # FORCE STEALTH
 workflow.add_edge("stealth_scraper", "compliance_check")
@@ -232,7 +260,8 @@ async def run_investigation_async(url: str, thread_id: str = "1") -> Dict[str, A
         "retry_count": 0,
         "errors": [],
         "financial_intel": {"risk_score": 0, "flags": [], "pix_data": [], "crypto_data": []},
-        "compliance_result": None 
+        "compliance_result": None,
+        "infra_data": None
     }
     
     config = {"configurable": {"thread_id": thread_id}}
