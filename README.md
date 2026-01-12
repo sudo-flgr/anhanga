@@ -1,4 +1,4 @@
-# Anhangá - Asynchronous Threat Intelligence Platform
+# Anhangá - Financial Crime & Cyber Threat Intelligence v3.0
 
 <div align="center">
   <img src="assets/logo.png" alt="Anhangá Logo" width="450">
