@@ -1,79 +1,66 @@
+# Anhangá - Financial Crime & Cyber Threat Intelligence v3.0
+
 <div align="center">
   <img src="assets/logo.png" alt="Anhangá Logo" width="450">
+  <br><br>
   
-  <h1>🌿 ANHANGÁ 🌿</h1>
-  
-  <p>
-    <b>Financial Crime & Cyber Threat Intelligence Framework</b>
-  </p>
-
-  <p>
-    <a href="https://github.com/felipeluan20/anhanga">
-      <img src="https://img.shields.io/badge/version-2.1-green" alt="Version">
-    </a>
-    <a href="https://python.org">
-      <img src="https://img.shields.io/badge/python-3.10+-blue" alt="Python">
-    </a>
-    <a href="#">
-      <img src="https://img.shields.io/badge/focus-Defense%20%26%20Intelligence-red" alt="Focus">
-    </a>
-  </p>
+  <a href="https://github.com/felipeluan20/anhanga">
+    <img src="https://img.shields.io/badge/version-3.0.0-blue" alt="Version">
+  </a>
+  <a href="https://python.org">
+    <img src="https://img.shields.io/badge/python-3.12+-blue" alt="Python">
+  </a>
+  <a href="#">
+    <img src="https://img.shields.io/badge/architecture-LangGraph%20%2F%20Async-orange" alt="Architecture">
+  </a>
+  <a href="#">
+    <img src="https://img.shields.io/badge/focus-Financial%20Crimes%20%26%20Compliance-red" alt="Focus">
+  </a>
 </div>
 
-## 👹 A Origem & O Propósito
+## 📖 Visão Geral
 
-Na mitologia Tupi-Guarani, o **Anhangá** é o espírito protetor da floresta. Ele vaga pela mata com seus olhos de fogo, protegendo o ecossistema e perseguindo aqueles que caçam por ganância, crueldade ou desrespeito.
+O **Anhangá v3.0** é uma plataforma de Inteligência de Ameaças (CTI) focada especificamente no combate a crimes financeiros digitais e na fiscalização do mercado de apostas online ("Bets") no Brasil.
 
-**No mundo digital, a infraestrutura é a nossa floresta.**
+Diferente de scanners tradicionais que focam apenas em infraestrutura de rede (IP/DNS), o Anhangá opera na camada de aplicação e financeira. Ele utiliza uma arquitetura baseada em **Grafos de Agentes Autônomos (LangGraph)** para simular o comportamento de um analista humano: navegando em sites, evadindo proteções (WAF), extraindo vetores financeiros (PIX/Cripto) e validando a conformidade legal do alvo contra as regulações vigentes.
 
-O Projeto Anhangá v2.1 foi concebido com essa filosofia: um framework de defesa e inteligência para caçar fraudadores ("Bets" ilegais, esquemas de lavagem via Pix e Laranjas) que exploram o ecossistema digital brasileiro. Ele centraliza em um terminal o trabalho que exigiria dezenas de ferramentas dispersas.
+## 🚀 Arquitetura v3.0 (Novas Capacidades)
 
----
+A versão 3.0 representa uma reescrita completa do motor, migrando de scripts lineares para uma **Máquina de Estados Assíncrona**.
 
-## 🚀 Arquitetura & Capacidades (v2.1)
+### 1. Motor de Investigação Assíncrono (LangGraph)
+O núcleo do sistema não segue mais um fluxo rígido. Ele toma decisões de roteamento baseadas no alvo:
+* **Detecção de Proteção:** Identifica automaticamente WAFs como Cloudflare.
+* **Roteamento Adaptativo:**
+    * *Rota Padrão:* Scrapers HTTP leves para alvos desprotegidos.
+    * *Rota Stealth:* Aciona o módulo **Camoufox** (Headless Browser com Fingerprint evasiva) para renderizar JavaScript e capturar evidências visuais (screenshots) em alvos protegidos.
 
-O Anhangá deixou de ser apenas um script linear e tornou-se um framework modular, operado por uma **Investigation Engine** proprietária que carrega plugins dinamicamente.
+### 2. MoneyTrail & Compliance (Fluxo Financeiro)
+O foco principal da v3.0 é o rastreamento do dinheiro ("Follow the Money"):
+* **Extração de PIX (EMV):** Algoritmo capaz de extrair QR Codes e Strings "Copia e Cola" diretamente da memória do navegador ou do HTML. Decodifica o payload EMV (ISO 18004) para revelar o Beneficiário Real, Cidade e TXID.
+* **Validação de Compliance ("Orange Check"):**
+    * Consulta a base de dados oficial de operadores autorizados (Lei 14.790/2023).
+    * Realiza um cruzamento (Fuzzy Matching) entre a Marca do Site e o Beneficiário do PIX.
+    * **Alerta de Risco:** Identifica discrepâncias que indicam uso de contas laranjas ou lavagem de dinheiro (ex: Site "BetX" recebendo em nome de "João Silva MEI").
 
-### 💰 1. Rastreio Financeiro (Follow the Money)
-Focado nas peculiaridades do sistema bancário brasileiro e na nova economia cripto.
+### 3. Coleta Profunda de Infraestrutura
+Resgate das capacidades de "Dirty Scraping" da versão anterior, agora integradas ao fluxo assíncrono:
+* **Fingerprinting:** Coleta IP real do servidor, Hash de Favicon (para correlação no Shodan) e Stack Tecnológica (Analytics, Pixels).
+* **Extração de Contatos:** Scraping recursivo de e-mails e telefones ocultos no código-fonte para atribuição de autoria.
 
-* **Pix Forensics (Nativo):** Implementação pura da norma EMV (ISO 18004) em Python.
-    * **Validação Matemática:** Verifica a integridade do payload via algoritmo **CRC16-CCITT**.
-    * **Extração Profunda:** Recupera Nome do Recebedor, Cidade, TXID e a Chave Pix real mascarada.
-* **Crypto Hunter:** Detecção automática e rastreio de carteiras de **Bitcoin, Ethereum e Tron**.
-    * Verificação de saldos em tempo real.
-    * Geração de links forenses para exploradores de bloco.
-
-### 🦅 2. Infraestrutura & Dirty Scraping
-Não apenas consultamos o DNS; nós lemos o código-fonte como um atacante faria.
-
-* **Hunter v2 (Dirty Scraper):** Baixa o HTML do alvo e utiliza Regex avançado para encontrar "pegadas digitais" ocultas:
-    * **IDs de Rastreio:** Google Analytics (`UA-XXXX`), GTM (`G-XXXX`) e Pixels. Isso permite vincular sites diferentes à mesma quadrilha.
-    * **Contatos Ocultos:** E-mails de desenvolvedores e telefones esquecidos em comentários de código.
-* **Resiliência:** Fallback automático para dados históricos de DNS e Whois caso o site esteja protegido por WAF/Cloudflare.
-
-### 👁️ 3. Identidade Digital (De-anonymization)
-Focado em desmascarar "laranjas" e operadores técnicos.
-
-* **Identity Hunter:** Valida a presença digital de e-mails suspeitos.
-    * **Visualint:** Recupera fotos reais e nomes de usuário via **Gravatar**.
-    * **SociaL:** Verifica vínculos em plataformas como Spotify e Skype.
-* **Leak Intelligence:** Cruzamento automatizado com bases de vazamentos (Google Dorks especializados) para confirmar a veracidade de credenciais.
-
-### 🧠 4. AI Core (Analista Cognitivo)
-Integração com **Ollama (LLMs Locais)** para transformar dados técnicos (JSON) em relatórios jurídicos/policiais.
-* Gera dossiês completos em PT-BR, correlacionando o Pix, o IP e a Identidade em uma narrativa de investigação.
+### 4. Relatórios Inteligentes (IA Opcional)
+Geração de dossiês executivos utilizando LLMs locais (via Ollama/Phi-3).
+* O relatório correlaciona os dados técnicos (Infra + Financeiro + Legal) em uma narrativa investigativa pronta para uso por departamentos de Compliance ou Jurídico.
 
 ---
 
 ## 🛠️ Instalação
 
 ### Pré-requisitos
-* **Python 3.10+**
-* **Ollama** (para relatórios de IA): [https://ollama.com](https://ollama.com)
-    * Sugestão de modelo: `ollama run phi3` ou `llama3`
+* **Python 3.12+** (Necessário para suporte a Typing moderno e AsyncIO).
+* **Ollama** (Opcional, apenas para relatórios de IA): [https://ollama.com](https://ollama.com)
 
-### Configuração Rápida
+### Setup
 
 1.  **Clone o repositório:**
     ```bash
@@ -81,74 +68,58 @@ Integração com **Ollama (LLMs Locais)** para transformar dados técnicos (JSON
     cd anhanga
     ```
 
-2.  **Instale as dependências (Incluindo CRCMod e Rich):**
+2.  **Instale em modo editável:**
     ```bash
-    pip install -r requirements.txt
+    pip install -e .
     ```
 
-3.  **Inicie o Framework:**
+3.  **Verifique a instalação:**
     ```bash
-    python anhanga.py investigate
+    python -m anhanga.cli version
     ```
 
 ---
 
-## 🎮 Como Usar
+## 💻 Uso (CLI)
 
-### 🕵️‍♂️ Modo Investigação (Pipeline Completo)
-O comando principal que aciona todos os motores sequencialmente:
+O Anhangá v3.0 possui uma Interface de Linha de Comando (CLI) unificada e profissional.
 
-```bash
-python anhanga.py investigate
-````
-
-O framework irá guiá-lo automaticamente pelas seguintes fases:
-
-* **Financeiro**
-  Cole um **Pix Copia-e-Cola** ou uma **carteira de criptomoeda**.
-
-* **Infraestrutura**
-  Insira a **URL** do site suspeito para análise de rede e serviços.
-
-* **Identidade**
-  Informe um **e-mail** identificado durante a investigação.
-
-* **Relatório**
-  A **IA** processa todos os dados correlacionados e gera um **relatório final em Markdown**.
-
----
-
-### ⚙️ Configurações (Opcional)
-
-Para habilitar recursos avançados, como análise de reputação e enriquecimento externo, configure suas chaves de API:
+### Iniciar uma Investigação
+Executa o motor completo (Infra + Compliance + MoneyTrail).
 
 ```bash
-python anhanga.py config --set-vt "SUA_KEY_VIRUSTOTAL"
-```
+python -m anhanga.cli scan [https://alvo.com](https://alvo.com)
+Investigação com Relatório IA
+Adicione a flag --report para gerar um dossiê Markdown ao final.
+ ```
+Bash
+ ```
+python -m anhanga.cli scan [https://alvo.com](https://alvo.com) --report
+ ```
+(Requer Ollama rodando localmente)
 
----
+**Gerenciamento de Chaves**
+Para enriquecimento de dados (opcional).
 
-## 📂 Estrutura Modular
-
-```text
-anhanga/
-├── anhanga.py                # Orquestrador CLI (Typer)
+ ```
+python -m anhanga.cli config --set-vt "SUA_API_KEY"
+ ```
+**📂 Estrutura do Projeto**
+Plaintext
+ ```
+src/anhanga/
+├── cli.py               # Ponto de entrada (Typer/Rich)
 ├── core/
-│   ├── engine.py             # Motor de carregamento dinâmico (Plugin System)
-│   └── base.py               # Contrato de módulos (Interface)
-├── modules/
-│   ├── fincrime/             # Pix Decoder (CRC16) & Validators
-│   ├── crypto/               # Crypto Hunter (Blockchain)
-│   ├── infra/                # Dirty Scraper & Network Analysis
-│   ├── identity/             # OSINT de e-mail & leaks
-│   └── reporter/             # Redator IA (Ollama)
-└── requirements.txt
-```
+│   ├── engine.py        # Cérebro: Grafo de Agentes (LangGraph)
+│   └── config.py        # Gerenciador de Configuração
+└── modules/
+    ├── infra/           # Scrapers de Rede e WAF Bypass
+    ├── fincrime/        # Decodificadores PIX e Validadores
+    ├── crypto/          # Extratores de Carteiras (Regex Contextual)
+    └── compliance/      # Verificação Legal (Lei 14.790)
+ ```
 
----
+## ⚖️ Disclaimer Legal
+Esta ferramenta é uma Prova de Conceito (PoC) desenvolvida estritamente para fins acadêmicos e de pesquisa em Segurança Cibernética e Inteligência Financeira.
 
-## ⚠️ Disclaimer & Ética
-
-Esta ferramenta é uma **Prova de Conceito (PoC)** desenvolvida para **Analistas de Defesa**, **Threat Intelligence** e **Pesquisadores de Segurança**.
-
-O uso do **Anhangá** para rastrear ou investigar alvos **sem autorização prévia** ou fora de um **contexto legal legítimo** pode violar legislações de privacidade (como a **LGPD**) e leis relacionadas a crimes cibernéticos.
+O uso do **Anhangá** deve estar em conformidade com todas as leis locais, nacionais e internacionais aplicáveis. Os desenvolvedores não se responsabilizam pelo uso indevido desta ferramenta para atividades não autorizadas.
