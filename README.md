@@ -96,18 +96,17 @@ Bash
  ```
 python -m anhanga.cli scan [https://alvo.com](https://alvo.com) --report
  ```
-**(Requer Ollama rodando localmente)**
+(Requer Ollama rodando localmente)
 
-
-Gerenciamento de Chaves
+**Gerenciamento de Chaves**
 Para enriquecimento de dados (opcional).
 
-Bash
  ```
 python -m anhanga.cli config --set-vt "SUA_API_KEY"
-📂 Estrutura do Projeto
+ ```
+**📂 Estrutura do Projeto**
 Plaintext
-
+ ```
 src/anhanga/
 ├── cli.py               # Ponto de entrada (Typer/Rich)
 ├── core/
@@ -120,7 +119,7 @@ src/anhanga/
     └── compliance/      # Verificação Legal (Lei 14.790)
  ```
 
-##⚖️ Disclaimer Legal
+## ⚖️ Disclaimer Legal
 Esta ferramenta é uma Prova de Conceito (PoC) desenvolvida estritamente para fins acadêmicos e de pesquisa em Segurança Cibernética e Inteligência Financeira.
 
-O uso do :**Anhangá:** deve estar em conformidade com todas as leis locais, nacionais e internacionais aplicáveis. Os desenvolvedores não se responsabilizam pelo uso indevido desta ferramenta para atividades não autorizadas.
+O uso do **Anhangá** deve estar em conformidade com todas as leis locais, nacionais e internacionais aplicáveis. Os desenvolvedores não se responsabilizam pelo uso indevido desta ferramenta para atividades não autorizadas.
