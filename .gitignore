@@ -9,3 +9,4 @@ __pycache__/
 *.png
 *.jpg
 .DS_Store
+config.json

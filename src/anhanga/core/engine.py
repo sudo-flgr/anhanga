@@ -3,6 +3,7 @@ import asyncio
 import os
 import requests
 import difflib
+import base64
 from datetime import datetime
 from typing import TypedDict, Annotated, List, Dict, Any, Optional
 import operator
@@ -16,6 +17,15 @@ from anhanga.modules.fincrime.pix_decoder import PixIntelligence
 from anhanga.modules.crypto.wallet_hunter import WalletHunter
 from anhanga.modules.fincrime.compliance.validator import BetCompliance
 from anhanga.modules.infra.hunter import InfraModule
+from anhanga.core.config import ConfigManager
+try:
+    import whois
+except ImportError:
+    whois = None
+try:
+    import shodan
+except ImportError:
+    shodan = None
 
 # Configure Logging
 logging.basicConfig(level=logging.ERROR) 
@@ -64,7 +74,11 @@ def infra_hunter_node(state: AgentState) -> AgentState:
             "tech": [],
             "emails": [],
             "favicon_hash": None,
-            "virustotal": None
+            "virustotal": None,
+            "virustotal": None,
+            "whois": {"registrar": "N/A", "creation_date": "N/A"},
+            "shodan": {"ports": [], "tags": []},
+            "urlscan": {"report_url": "N/A"}
         }
         
         for res in results:
@@ -83,19 +97,79 @@ def infra_hunter_node(state: AgentState) -> AgentState:
                 infra_data["favicon_hash"] = content
             elif title == "VirusTotal":
                 infra_data["virustotal"] = content
-                
-        state["infra_data"] = infra_data
         
-        # 3. Quick Cloudflare Check (to keep protection_type logic)
-        # Inherited from InfraModule result or re-check? 
-        # For safety/consistency with V3 flow, we'll assume Cloudflare if detected by InfraModule 
-        # OR just set it to 'Unknown' effectively, since we FORCE Stealth anyway.
-        # But let's check headers if available from a previous step (unlikely here) or just rely on InfraModule.
-        # InfraModule uses dirty scrape but doesn't explicitly output "Protection Type".
-        # Let's do a quick check on headers if InfraModule didn't break.
-        # Actually, InfraModule doesn't expose headers directly. 
-        # We will keep protection_type as "Unknown" or "Cloudflare" if IP is obscured?
-        # Let's just default to None, as StealthScraper handles everything.
+        state["infra_data"] = infra_data
+
+        # --- EXTERNAL ENRICHMENT ---
+        # --- EXTERNAL ENRICHMENT ---
+        cfg = ConfigManager()
+        target_ip = infra_data.get("ip")
+        
+        # 1. Whois Lookup (Native)
+        try:
+            # Robust extraction: remove protocol and path
+            domain = url.split("//")[-1].split("/")[0]
+            w = whois.whois(domain)
+            state["infra_data"]["whois"] = {
+                "registrar": w.registrar,
+                "creation_date": str(w.creation_date[0] if isinstance(w.creation_date, list) else w.creation_date),
+                "org": w.org
+            }
+        except Exception as e:
+            # Capturing generic exception including PywhoisError if generic
+            state["errors"].append(f"Whois Error: {e}")
+            
+        # 2. Shodan Lookup (API)
+        if target_ip and target_ip != "N/A":
+            if shodan_key := cfg.get_key("shodan"):
+                try:
+                    api = shodan.Shodan(shodan_key)
+                    # Use timeout or safe call if possible, but Shodan lib handles most
+                    host = api.host(target_ip)
+                    state["infra_data"]["shodan"] = {
+                        "ports": host.get("ports", []),
+                        "org": host.get("org", "Unknown"),
+                        "tags": host.get("tags", []),
+                        "vulns": list(host.get("vulns", []))
+                    }
+                except Exception as e:
+                    state["errors"].append(f"Shodan Error: {e}")
+
+        # 3. VirusTotal Integration
+        if vt_key := cfg.get_key("virustotal"):
+            try:
+                # VT requires base64 URL ID (urlsafe, no padding)
+                url_id = base64.urlsafe_b64encode(url.encode()).decode().strip("=")
+                vt_url = f"https://www.virustotal.com/api/v3/urls/{url_id}"
+                headers = {"x-apikey": vt_key}
+                
+                vt_res = requests.get(vt_url, headers=headers, timeout=15)
+                if vt_res.status_code == 200:
+                    vt_json = vt_res.json()
+                    stats = vt_json.get("data", {}).get("attributes", {}).get("last_analysis_stats", {})
+                    state["infra_data"]["virustotal"] = stats
+                elif vt_res.status_code == 404:
+                    # URL not found in VT
+                    state["infra_data"]["virustotal"] = {"status": "not_found"}
+            except Exception as e:
+                state["errors"].append(f"VirusTotal Error: {e}")
+
+        # 4. URLScan.io Submission
+        urlscan_key = cfg.get_key("urlscan")
+        if urlscan_key:
+            try:
+                # Check previous implementation compatibility
+                headers = {'API-Key': urlscan_key,'Content-Type': 'application/json'}
+                data = {"url": url, "visibility": "public"}
+                u_res = requests.post('https://urlscan.io/api/v1/scan/', headers=headers, json=data, timeout=15)
+                if u_res.status_code == 200:
+                    u_data = u_res.json()
+                    if "urlscan" not in state["infra_data"]:
+                         state["infra_data"]["urlscan"] = {}
+                    state["infra_data"]["urlscan"]["report_url"] = u_data.get("result", "N/A")
+            except Exception as e:
+                state["errors"].append(f"URLScan Error: {str(e)}")
+
         state["protection_type"] = "Unknown"
             
     except Exception as e:

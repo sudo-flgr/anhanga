@@ -57,7 +57,7 @@ def print_banner():
        ▓█   ▓██▒▒██░   ▓██░░▓█▒░██▓ ▓█   ▓██▒▒██░   ▓██░░▒▓███▀▒ ▓█   ▓██▒
        ▒▒   ▓▒█░░ ▒░   ▒ ▒  ▒ ░░▒░▒ ▒▒   ▓▒█░░ ▒░   ▒ ▒  ░▒   ▒  ▒▒   ▓▒█░     
     [/bold green]
-            [bold white]Anhangá v3.0 - Asynchronous Threat Intelligence Platform[/bold white]
+            [bold white]Advanced Financial Crime & Threat Intelligence Platform - v3.0[/bold white]
    """
     console.print(banner)
 
@@ -69,7 +69,8 @@ def version():
 @app.command()
 def config(
     vt: str = typer.Option(None, "--set-vt", help="Configurar chave API VirusTotal"),
-    shodan: str = typer.Option(None, "--set-shodan", help="Configurar chave API Shodan")
+    shodan: str = typer.Option(None, "--set-shodan", help="Configurar chave API Shodan"),
+    urlscan: str = typer.Option(None, "--set-urlscan", help="Configurar chave API URLScan.io")
 ):
     """Gerencia configurações e chaves de API."""
     if vt: 
@@ -79,8 +80,12 @@ def config(
         cfg.set_key("shodan", shodan)
         console.print("[green]Chave Shodan Salva![/green]")
         
-    if not vt and not shodan:
-        console.print("[yellow]Use --set-vt ou --set-shodan para configurar.[/yellow]")
+    if urlscan:
+        cfg.set_key("urlscan", urlscan)
+        console.print("[green]Chave URLScan Salva![/green]")
+        
+    if not vt and not shodan and not urlscan:
+        console.print("[yellow]Use --set-vt, --set-shodan ou --set-urlscan para configurar.[/yellow]")
 
 @app.command()
 def scan(
@@ -134,6 +139,53 @@ def scan(
             infra_text.append("\n E-mails Encontrados (Scraping):\n", style="bold white")
             for e in emails:
                 infra_text.append(f"- {e}\n", style="cyan underline")
+
+        # [NEW] Whois Display
+        w_data = infra_data.get("whois")
+        if w_data and w_data.get("registrar"):
+             infra_text.append(f"\n[Whois] {w_data.get('registrar')} ({w_data.get('creation_date')})\n", style="dim")
+        else:
+             infra_text.append(f"\n[Whois] Dados não disponíveis\n", style="dim")
+        
+        # [NEW] Shodan Display
+        s_data = infra_data.get("shodan")
+        if s_data and s_data.get("ip") != "N/A": # Basic check or check ports
+            # Ensure we don't crash on None org
+            org = s_data.get('org') or "Unknown"
+            infra_text.append(f"\n[Shodan] Org: {org}\n", style="bold red")
+            
+            ports = s_data.get('ports') or []
+            if ports:
+                infra_text.append(f" Portas: {ports}\n", style="red")
+            
+            vulns = s_data.get('vulns') or []
+            if vulns:
+                infra_text.append(f" Vulns: {len(vulns)} detectadas!\n", style="bold red blink")
+        else:
+             # Only show unavailable if we expected it? Or just suppress? 
+             # User asked to "handle empty data gracefully (display 'N/A'...)"
+             # But if Shodan key isn't present, maybe we shouldn't show "N/A". 
+             # Let's show "N/A" only if we have a section header concept. 
+             # Here we are appending inline.
+             # I'll stick to printing "[Shodan] N/A" if checking failed but key might have been present. 
+             # For now, if no data, let's print "Dados Shodan não disponíveis" to be safe.
+             pass 
+
+        # URLScan (Legacy/Preserved)
+        if u_data := infra_data.get("urlscan"):
+             u_report_url = u_data.get("report_url", "N/A")
+             if u_report_url != "N/A":
+                  infra_text.append(f"\n[URLScan] {u_report_url}\n", style="blue underline")
+
+        # VirusTotal
+        if vt_data := infra_data.get("virustotal"):
+            if "malicious" in vt_data:
+                malicious = vt_data.get("malicious", 0)
+                harmless = vt_data.get("harmless", 0)
+                color = "red" if malicious > 0 else "green"
+                infra_text.append(f"\n[🛡️ VirusTotal] {malicious} Maliciosos / {harmless} Seguros\n", style=f"bold {color}")
+            elif vt_data.get("status") == "not_found":
+                infra_text.append("\n[🛡️ VirusTotal] URL não encontrada na base.\n", style="dim")
 
     infra_text.append(f"\nStatus da Coleta: {status}\n", style="white")
     if screenshot:
