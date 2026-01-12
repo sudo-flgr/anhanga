@@ -1,7 +1,11 @@
 __pycache__/
-*.pyc
+*.py[cod]
+.env
+venv/
+.venv/
+.vscode/
+screenshots/
+__pycache__/
 *.png
 *.jpg
-screenshots/
-.env
 .DS_Store
