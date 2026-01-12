@@ -14,21 +14,15 @@ from typing import Optional
 # Disable SSL Warnings
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+# Force UTF-8 on Windows
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding='utf-8')
+
 # Core Imports
 from anhanga.core.engine import run_investigation
 from anhanga.core.config import ConfigManager
 
-# Module Imports (Try/Except for robustness)
-try:
-    from anhanga.modules.identity.checker import IdentityModule
-except ImportError:
-    IdentityModule = None
-
-try:
-    from anhanga.modules.fincrime.pix_decoder import PixIntelligence
-except ImportError:
-    PixIntelligence = None
-
+# Optional AI Reporter
 try:
     from anhanga.modules.reporter.writer import AIReporter
 except ImportError:
@@ -39,19 +33,31 @@ console = Console()
 cfg = ConfigManager()
 
 def print_banner():
-    # Helper for ASCII Banner
+    # Professional ASCII Banner
     banner = r"""
     [bold green]
-       ___      _                            
-      / _ \    | |                           
-     / /_\ \ __| |_   _  __ _ _ __   ___ ___ 
-     |  _  |/ _` | | | |/ _` | '_ \ / __/ _ \
-     | | | | (_| | |_| | (_| | | | | (_|  __/
-     \_| |_/\__,_|\__, |\__,_|_| |_|\___\___|
-                   __/ |                     
-                  |___/                      
+                                  # #### ####
+                                ### \/#|### |/####
+                               ##\/#/ \||/##/_/##/_#
+                             ###  \/###|/ \/ # ###
+                           ##_\_#\_\## | #/###_/_####
+                          ## #### # \ #| /  #### ##/##
+                           __#_--###`  |{,###---###-~
+                                     \ }{
+                                      }}{
+                                      }}{
+                                      {{}
+                                , -=-~{ .-^- _
+                                      `}
+                                       {
+       ▄▄▄       ███▄    █  ██░ ██  ▄▄▄       ███▄    █   ▄████  ▄▄▄       █
+      ▒████▄     ██ ▀█   █ ▓██░ ██▒▒████▄     ██ ▀█   █  ██▒ ▀█▒▒████▄    █
+      ▒██  ▀█▄  ▓██  ▀█ ██▒▒██▀▀██░▒██  ▀█▄  ▓██  ▀█ ██▒▒██░▄▄▄░▒██  ▀█▄  
+      ░██▄▄▄▄██ ▓██▒  ▐▌██▒░▓█ ░██ ░██▄▄▄▄██ ▓██▒  ▐▌██▒░▓█  ██▓░██▄▄▄▄██ 
+       ▓█   ▓██▒▒██░   ▓██░░▓█▒░██▓ ▓█   ▓██▒▒██░   ▓██░░▒▓███▀▒ ▓█   ▓██▒
+       ▒▒   ▓▒█░░ ▒░   ▒ ▒  ▒ ░░▒░▒ ▒▒   ▓▒█░░ ▒░   ▒ ▒  ░▒   ▒  ▒▒   ▓▒█░     
     [/bold green]
-            [bold white]Financial Crime & Cyber Threat Intelligence[/bold white] [bold cyan]v3.0[/bold cyan]
+            [bold white]Anhangá v3.0 - Asynchronous Threat Intelligence Platform[/bold white]
    """
     console.print(banner)
 
@@ -93,7 +99,7 @@ def scan(
         
     console.print(f"\n[bold white][Target] Alvo:[/bold white] [cyan]{url}[/cyan]\n")
     
-    with console.status("[bold blue]Executando Anhangá Engine v3.0...[/bold blue]", spinner="dots"):
+    with console.status("[bold blue]Executando Anhangá Engine v3.0 (Async)...[/bold blue]", spinner="dots"):
         try:
             state = run_investigation(url)
         except Exception as e:
@@ -224,84 +230,6 @@ def scan(
             console.print(f"[bold green]Relatório IA salvo em: {filename}[/bold green]")
         else:
             console.print("[bold red]Erro: Módulo AIReporter não encontrado.[/bold red]")
-
-
-# --- SUBCOMANDO OSINT (IDENTITY) ---
-
-osint_app = typer.Typer(help="Ferramentas de Inteligência de Fontes Abertas (OSINT)")
-app.add_typer(osint_app, name="osint")
-
-@osint_app.command("email")
-def osint_email(address: str):
-    """
-    Realiza varredura passiva em um e-mail (Gravatar, Spotify, Skype, etc).
-    """
-    if not IdentityModule:
-        console.print("[bold red]Módulo Identity não encontrado.[/bold red]")
-        return
-        
-    print_banner()
-    console.print(f"\n[bold white]Investigando Identidade Digital:[/bold white] [cyan]{address}[/cyan]\n")
-    
-    with console.status("[bold blue]Consultando bases de dados...[/bold blue]"):
-        module = IdentityModule()
-        module.run(address)
-        results = module.get_results()
-        
-    if results:
-        for res in results:
-            title = res.get("title", "Evidência")
-            content = res.get("content", "")
-            confidence = res.get("confidence", "low")
-            
-            icon = "[?]"
-            border = "white"
-            
-            if "Spotify" in title: icon = "[Music]"; border="green"
-            elif "Gravatar" in title: icon = "[Photo]"; border="blue"
-            elif "Skype" in title: icon = "[Call]"; border="cyan"
-            
-            console.print(Panel(f"{icon} {content}", title=f"🕵️ {title} ({confidence})", border_style=border))
-    else:
-        console.print("[bold yellow]Nenhuma pegada digital encontrada para este e-mail.[/bold yellow]")
-
-
-# --- SUBCOMANDO DECODE (UTILS) ---
-
-decode_app = typer.Typer(help="Ferramentas de Decodificação")
-app.add_typer(decode_app, name="decode")
-
-@decode_app.command("pix")
-def decode_pix_cmd(code: str):
-    """
-    Decodifica strings PIX Copia-e-Cola (EMV QRCPS).
-    Extrai Beneficiário, Cidade, TXID e Valor.
-    """
-    if not PixIntelligence:
-         console.print("[bold red]Módulo PixIntelligence não encontrado.[/bold red]")
-         return
-
-    print_banner()
-    console.print(f"\n[bold white]Decodificando PIX...[/bold white]\n")
-    
-    module = PixIntelligence()
-    # Determine input type. If pure hex, convert? Usually input is raw string "000201..."
-    decoded = module.decode_emv(code)
-    
-    if decoded:
-        table = Table(title="Dados do PIX Decodificados")
-        table.add_column("Campo", style="cyan")
-        table.add_column("Valor", style="white")
-        
-        table.add_row("Beneficiário", decoded.get("beneficiary_name", "N/A"))
-        table.add_row("Cidade", decoded.get("city", "N/A"))
-        table.add_row("Chave PIX", decoded.get("pix_key", "N/A"))
-        table.add_row("Valor", decoded.get("amount", "R$ 0,00"))
-        table.add_row("TxID", decoded.get("txid", "N/A"))
-        
-        console.print(table)
-    else:
-        console.print("[bold red]Falha ao decodificar PIX. Payload inválido ou CRC incorreto.[/bold red]")
 
 
 if __name__ == "__main__":
