@@ -1,9 +1,3 @@
-que elas ficam locais e fora do Git).
-
-Copie o bloco abaixo e substitua no seu arquivo.
-
-Markdown
-
 # Anhangá - Advanced Financial Crime & Threat Intelligence Platform
 
 <div align="center">
