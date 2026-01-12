@@ -1,1 +1,7 @@
-investigation_current.json
+__pycache__/
+*.pyc
+*.png
+*.jpg
+screenshots/
+.env
+.DS_Store
