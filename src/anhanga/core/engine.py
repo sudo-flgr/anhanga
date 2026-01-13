@@ -101,7 +101,6 @@ def infra_hunter_node(state: AgentState) -> AgentState:
         state["infra_data"] = infra_data
 
         # --- EXTERNAL ENRICHMENT ---
-        # --- EXTERNAL ENRICHMENT ---
         cfg = ConfigManager()
         target_ip = infra_data.get("ip")
         
